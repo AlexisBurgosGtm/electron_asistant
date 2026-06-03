@@ -1,0 +1,60 @@
+[
+  {
+    "id": "1",
+    "nombre": "MERCADOS VENTAS",
+    "tipo": "mssql",
+    "host": "sql5060.site4now.net",
+    "puerto": 1433,
+    "usuario": "db_a6478c_mercadosv2_admin",
+    "password": "razors1805",
+    "baseDatos": "db_a6478c_mercadosv2",
+    "opciones": {
+      "encrypt": false,
+      "trustServerCertificate": true
+    }
+  },
+  {
+    "id": "2",
+    "nombre": "MERCADOS B I",
+    "tipo": "mssql",
+    "host": "sql5061.site4now.net",
+    "usuario": "db_a6478c_mercadosbi_admin",
+    "password": "razors1805",
+    "baseDatos": "db_a6478c_mercadosbi",
+    "opciones": {
+      "encrypt": false,
+      "trustServerCertificate": true
+    }
+  },
+  {
+    "id": "3",
+    "nombre": "XELASOL",
+    "tipo": "mssql",
+    "host": "sql8010.site4now.net",
+    "usuario": "db_a6478c_sygmapos_admin",
+    "password": "razors1805",
+    "baseDatos": "db_a6478c_sygmapos",
+    "opciones": {
+      "encrypt": false,
+      "trustServerCertificate": true
+    }
+  },
+  {
+    "id": "4",
+    "nombre": "TECNOSYSTEM",
+    "tipo": "mysql",
+    "host": "mysql5048.site4now.net",
+    "usuario": "a6478c_tecnico",
+    "password": "razors1805",
+    "baseDatos": "db_a6478c_tecnico"
+  },
+  {
+    "id": "5",
+    "nombre": "PROXY",
+    "tipo": "mysql",
+    "host": "mysql5048.site4now.net",
+    "usuario": "a6478c_proxy",
+    "password": "razors1805",
+    "baseDatos": "db_a6478c_proxy"
+  }
+]
