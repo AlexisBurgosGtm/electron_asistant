@@ -3,21 +3,21 @@ const path = require('path');
 const express = require('express');
 const sql = require('mssql');
 const mysql = require('mysql2/promise');
+const whatsapp = require('./whatsapp');
+const googleTasks = require('./googleTasks');
+const appPaths = require('./appPaths');
 
-const PORT = 9005;
-const CONEXIONES_PATH = path.join(__dirname, '..', 'conexiones.json');
-const MANTENIMIENTO_PATH = path.join(__dirname, '..', 'mantenimiento.json');
-const PUBLIC_PATH = path.join(__dirname, '..', 'public');
+const PORT = 9006;
 
 let server = null;
 
 async function readConexiones() {
   try {
-    const data = await fs.readFile(CONEXIONES_PATH, 'utf-8');
+    const data = await fs.readFile(appPaths.conexionesPath(), 'utf-8');
     return JSON.parse(data);
   } catch (err) {
     if (err.code === 'ENOENT') {
-      await fs.writeFile(CONEXIONES_PATH, '[]', 'utf-8');
+      await fs.writeFile(appPaths.conexionesPath(), '[]', 'utf-8');
       return [];
     }
     throw err;
@@ -25,16 +25,16 @@ async function readConexiones() {
 }
 
 async function writeConexiones(conexiones) {
-  await fs.writeFile(CONEXIONES_PATH, JSON.stringify(conexiones, null, 2), 'utf-8');
+  await fs.writeFile(appPaths.conexionesPath(), JSON.stringify(conexiones, null, 2), 'utf-8');
 }
 
 async function readMantenimiento() {
   try {
-    const data = await fs.readFile(MANTENIMIENTO_PATH, 'utf-8');
+    const data = await fs.readFile(appPaths.mantenimientoPath(), 'utf-8');
     return JSON.parse(data);
   } catch (err) {
     if (err.code === 'ENOENT') {
-      await fs.writeFile(MANTENIMIENTO_PATH, '[]', 'utf-8');
+      await fs.writeFile(appPaths.mantenimientoPath(), '[]', 'utf-8');
       return [];
     }
     throw err;
@@ -42,7 +42,7 @@ async function readMantenimiento() {
 }
 
 async function writeMantenimiento(comandos) {
-  await fs.writeFile(MANTENIMIENTO_PATH, JSON.stringify(comandos, null, 2), 'utf-8');
+  await fs.writeFile(appPaths.mantenimientoPath(), JSON.stringify(comandos, null, 2), 'utf-8');
 }
 
 function generateId(items) {
@@ -137,7 +137,7 @@ async function executeQuery(conexion, query) {
 function createApp() {
   const app = express();
   app.use(express.json());
-  app.use(express.static(PUBLIC_PATH));
+  app.use(express.static(appPaths.publicPath()));
 
   app.get('/api/conexiones', async (_req, res) => {
     try {
@@ -267,16 +267,12 @@ function createApp() {
       if (!req.body.query?.trim()) {
         return res.status(400).json({ error: 'La query es obligatoria' });
       }
-      if (!req.body.comandoVoz?.trim()) {
-        return res.status(400).json({ error: 'El comando de voz es obligatorio' });
-      }
 
       const nuevo = {
         id: generateId(comandos),
         conexionId: req.body.conexionId,
-        nombre: req.body.nombre?.trim() || req.body.comandoVoz.trim(),
+        nombre: req.body.nombre?.trim() || 'Comando SQL',
         query: req.body.query.trim(),
-        comandoVoz: req.body.comandoVoz.trim(),
       };
 
       comandos.push(nuevo);
@@ -307,7 +303,6 @@ function createApp() {
         ...req.body,
         id: req.params.id,
         query: req.body.query?.trim() ?? comandos[index].query,
-        comandoVoz: req.body.comandoVoz?.trim() ?? comandos[index].comandoVoz,
       };
 
       await writeMantenimiento(comandos);
@@ -346,7 +341,7 @@ function createApp() {
       }
 
       const result = await executeQuery(conexion, comando.query);
-      res.json({ ...result, comando: comando.nombre || comando.comandoVoz });
+      res.json({ ...result, comando: comando.nombre });
     } catch (err) {
       res.status(500).json({ ok: false, mensaje: err.message });
     }
@@ -356,8 +351,105 @@ function createApp() {
     res.json({ ok: true, puerto: PORT, servicio: 'electron-asistant' });
   });
 
+  app.get('/api/app/info', (_req, res) => {
+    res.json(appPaths.getAppInfo());
+  });
+
+  app.get('/api/whatsapp/status', (_req, res) => {
+    res.json(whatsapp.getPublicState());
+  });
+
+  app.get('/api/whatsapp/messages', (_req, res) => {
+    res.json(whatsapp.getMessages());
+  });
+
+  app.get('/api/whatsapp/events', (req, res) => {
+    whatsapp.attachSse(req, res);
+  });
+
+  app.post('/api/whatsapp/start', async (_req, res) => {
+    try {
+      const result = await whatsapp.startSession();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/whatsapp/logout', async (_req, res) => {
+    try {
+      const result = await whatsapp.logoutSession();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/google/status', async (_req, res) => {
+    try {
+      await googleTasks.ensureClient();
+      res.json(googleTasks.getStatus());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/google/auth-url', async (_req, res) => {
+    try {
+      const url = await googleTasks.getAuthUrl();
+      res.json({ url });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/google/callback', async (req, res) => {
+    try {
+      if (!req.query.code) {
+        return res.status(400).send('Autorización cancelada o código no recibido.');
+      }
+      await googleTasks.handleCallback(req.query.code);
+      res.send(`
+        <!DOCTYPE html>
+        <html lang="es"><head><meta charset="UTF-8"><title>Google Tasks</title>
+        <style>body{font-family:sans-serif;background:#0a1628;color:#e8f0fe;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+        .box{text-align:center;padding:2rem;border:1px solid rgba(100,160,255,.2);border-radius:12px;background:rgba(15,31,58,.9)}</style></head>
+        <body><div class="box"><h2>Cuenta conectada</h2><p>Ya puedes volver a la aplicación y pulsar Actualizar en Tareas.</p></div></body></html>
+      `);
+    } catch (err) {
+      res.status(500).send(`Error: ${err.message}`);
+    }
+  });
+
+  app.get('/api/google/tasks', async (_req, res) => {
+    try {
+      const data = await googleTasks.getAllTasksGrouped();
+      res.json(data);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/google/tasks/:listId/:taskId/complete', async (req, res) => {
+    try {
+      const result = await googleTasks.completeTask(req.params.listId, req.params.taskId);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/google/logout', async (_req, res) => {
+    try {
+      await googleTasks.logout();
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.get('*', (_req, res) => {
-    res.sendFile(path.join(PUBLIC_PATH, 'index.html'));
+    res.sendFile(path.join(appPaths.publicPath(), 'index.html'));
   });
 
   return app;
@@ -372,6 +464,12 @@ function startServer() {
     const app = createApp();
     server = app.listen(PORT, '0.0.0.0', () => {
       console.log(`Servidor activo en http://localhost:${PORT}`);
+      googleTasks.loadClient(PORT).catch((err) => {
+        console.warn('Google Tasks:', err.message);
+      });
+      whatsapp.startSession().catch((err) => {
+        console.warn('WhatsApp auto-start:', err.message);
+      });
       resolve(server);
     });
 
@@ -381,12 +479,14 @@ function startServer() {
 
 function stopServer() {
   return new Promise((resolve) => {
-    if (!server) {
-      return resolve();
-    }
-    server.close(() => {
-      server = null;
-      resolve();
+    whatsapp.destroyWhatsApp().finally(() => {
+      if (!server) {
+        return resolve();
+      }
+      server.close(() => {
+        server = null;
+        resolve();
+      });
     });
   });
 }

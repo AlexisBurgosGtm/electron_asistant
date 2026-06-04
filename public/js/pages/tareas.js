@@ -1,0 +1,252 @@
+import { api } from '../api.js';
+import { showToast } from '../utils.js';
+import { speak } from '../tts.js';
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text ?? '';
+  return div.innerHTML;
+}
+
+function formatDueDate(due) {
+  if (!due) return '';
+  return new Date(due).toLocaleString('es-ES', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function renderTaskLists(grouped, activeListId) {
+  return grouped.map((list) => `
+    <button type="button" class="tasks-list-tab ${list.id === activeListId ? 'active' : ''}" data-list-id="${list.id}">
+      <i class="fa-solid fa-list-check"></i>
+      ${escapeHtml(list.title)}
+      <span class="tasks-count">${list.tasks.length}</span>
+    </button>
+  `).join('');
+}
+
+function renderTasks(list, listId) {
+  if (!list?.tasks?.length) {
+    return `
+      <div class="empty-state glass">
+        <i class="fa-solid fa-check-double"></i>
+        <p>No hay tareas en esta lista</p>
+      </div>
+    `;
+  }
+
+  return list.tasks.map((task) => `
+    <article class="task-card glass ${task.status === 'completed' ? 'task-card--done' : ''}">
+      <div class="task-card__header">
+        <h4>${escapeHtml(task.title)}</h4>
+        <span class="task-status">${task.status === 'completed' ? 'Completada' : 'Pendiente'}</span>
+      </div>
+      ${task.notes ? `<p class="task-card__notes">${escapeHtml(task.notes)}</p>` : ''}
+      ${task.due ? `<p class="task-card__due"><i class="fa-regular fa-calendar"></i> ${formatDueDate(task.due)}</p>` : ''}
+      <div class="task-card__actions">
+        <button type="button" class="btn btn--ghost btn--sm btn-speak-task" data-title="${escapeHtml(task.title)}" data-notes="${escapeHtml(task.notes)}">
+          <i class="fa-solid fa-volume-high"></i> Escuchar
+        </button>
+        ${task.status !== 'completed' ? `
+          <button type="button" class="btn btn--primary btn--sm btn-complete-task" data-list-id="${escapeHtml(listId)}" data-task-id="${escapeHtml(task.id)}" data-title="${escapeHtml(task.title)}">
+            <i class="fa-solid fa-check"></i> Finalizar
+          </button>
+        ` : ''}
+      </div>
+    </article>
+  `).join('');
+}
+
+function bindTaskActions(container, onComplete) {
+  container.querySelectorAll('.btn-speak-task').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const title = btn.dataset.title;
+      const notes = btn.dataset.notes;
+      const text = notes ? `${title}. ${notes}` : title;
+      speak(text);
+    });
+  });
+
+  container.querySelectorAll('.btn-complete-task').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const { listId, taskId, title } = btn.dataset;
+      btn.disabled = true;
+      try {
+        await api.completeGoogleTask(listId, taskId);
+        showToast(`Tarea finalizada: ${title}`, 'success');
+        speak(`Tarea finalizada: ${title}`);
+        if (onComplete) await onComplete();
+      } catch (err) {
+        showToast(err.message, 'error');
+        btn.disabled = false;
+      }
+    });
+  });
+}
+
+export async function renderTareas(container) {
+  let status;
+  try {
+    status = await api.getGoogleStatus();
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state glass"><p>${escapeHtml(err.message)}</p></div>`;
+    return;
+  }
+
+  if (!status.hasCredentials) {
+    container.innerHTML = `
+      <div class="empty-state glass">
+        <i class="fa-brands fa-google"></i>
+        <h3>Configura Google Tasks</h3>
+        <p>Coloca el archivo <code>google-credentials.json</code> descargado de Google Cloud en:</p>
+        <p class="voice-hints__note"><code>${escapeHtml(status.credentialsPath || status.dataDir || '')}</code></p>
+        ${status.isPackaged ? '<p class="voice-hints__note">También puedes dejarlo junto al ejecutable de la app; se copiará automáticamente al iniciar.</p>' : ''}
+        <p class="voice-hints__note">URI de redirección autorizada: <code>${escapeHtml(status.redirectUri || 'http://localhost:9006/api/google/callback')}</code></p>
+      </div>
+    `;
+    return;
+  }
+
+  if (!status.authenticated) {
+    container.innerHTML = `
+      <div class="tasks-auth glass">
+        <div class="tasks-auth__content">
+          <i class="fa-brands fa-google"></i>
+          <h3>Conectar Google Tasks</h3>
+          <p>Inicia sesión con tu cuenta de Google para leer y completar tus tareas.</p>
+          ${status.projectId ? `<p class="voice-hints__note">Proyecto: <code>${escapeHtml(status.projectId)}</code></p>` : ''}
+          <div class="tasks-auth__actions">
+            <button type="button" class="btn btn--primary" id="btn-google-connect">
+              <i class="fa-brands fa-google"></i> Conectar cuenta
+            </button>
+            <button type="button" class="btn btn--ghost" id="btn-google-refresh">
+              <i class="fa-solid fa-rotate"></i> Ya autoricé
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-google-connect').addEventListener('click', async () => {
+      try {
+        const { url } = await api.getGoogleAuthUrl();
+        window.open(url, '_blank');
+        showToast('Autoriza en el navegador y luego pulsa "Ya autoricé"', 'info');
+      } catch (err) {
+        showToast(err.message, 'error');
+      }
+    });
+
+    document.getElementById('btn-google-refresh').addEventListener('click', () => renderTareas(container));
+    return;
+  }
+
+  container.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
+
+  try {
+    const grouped = await api.getGoogleTasks();
+    let currentListId = grouped[0]?.id || null;
+    const listMap = Object.fromEntries(grouped.map((l) => [l.id, l]));
+
+    function getCurrentList() {
+      return listMap[currentListId];
+    }
+
+    function renderLayout() {
+      const activeList = getCurrentList();
+      container.innerHTML = `
+        <div class="tasks-layout">
+          <aside class="tasks-sidebar glass">
+            <div class="tasks-sidebar__header">
+              <h3><i class="fa-solid fa-list-check"></i> Listas</h3>
+              <button type="button" class="btn btn--ghost btn--sm" id="btn-google-logout" title="Cerrar sesión">
+                <i class="fa-solid fa-right-from-bracket"></i>
+              </button>
+            </div>
+            <div class="tasks-list-tabs" id="tasks-list-tabs">
+              ${renderTaskLists(grouped, currentListId)}
+            </div>
+          </aside>
+          <section class="tasks-content glass">
+            <div class="tasks-content__header">
+              <h3 id="tasks-list-title">${escapeHtml(activeList?.title || 'Tareas')}</h3>
+              <div class="tasks-content__actions">
+                <button type="button" class="btn btn--ghost btn--sm" id="btn-read-all">
+                  <i class="fa-solid fa-volume-high"></i> Leer pendientes
+                </button>
+                <button type="button" class="btn btn--primary btn--sm" id="btn-refresh-tasks">
+                  <i class="fa-solid fa-rotate"></i> Actualizar
+                </button>
+              </div>
+            </div>
+            <div class="tasks-grid" id="tasks-grid">
+              ${renderTasks(activeList, currentListId)}
+            </div>
+          </section>
+        </div>
+      `;
+
+      document.getElementById('tasks-list-tabs').addEventListener('click', (e) => {
+        const tab = e.target.closest('.tasks-list-tab');
+        if (!tab) return;
+
+        currentListId = tab.dataset.listId;
+        const list = listMap[currentListId];
+
+        document.querySelectorAll('.tasks-list-tab').forEach((el) => el.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tasks-list-title').textContent = list?.title || 'Tareas';
+        document.getElementById('tasks-grid').innerHTML = renderTasks(list, currentListId);
+        bindTaskActions(document.getElementById('tasks-grid'), refreshTasks);
+      });
+
+      document.getElementById('btn-refresh-tasks').addEventListener('click', () => renderTareas(container));
+      document.getElementById('btn-google-logout').addEventListener('click', async () => {
+        try {
+          await api.logoutGoogle();
+          showToast('Sesión de Google cerrada', 'success');
+          renderTareas(container);
+        } catch (err) {
+          showToast(err.message, 'error');
+        }
+      });
+
+      document.getElementById('btn-read-all').addEventListener('click', () => {
+        const pending = (getCurrentList()?.tasks || []).filter((t) => t.status !== 'completed');
+        if (!pending.length) {
+          showToast('No hay tareas pendientes en esta lista', 'info');
+          return;
+        }
+        const text = pending.map((t) => t.title).join('. ');
+        speak(`Tareas pendientes: ${text}`);
+      });
+
+      bindTaskActions(document.getElementById('tasks-grid'), refreshTasks);
+    }
+
+    async function refreshTasks() {
+      const updated = await api.getGoogleTasks();
+      updated.forEach((list) => {
+        listMap[list.id] = list;
+      });
+      grouped.splice(0, grouped.length, ...updated);
+      document.getElementById('tasks-list-tabs').innerHTML = renderTaskLists(grouped, currentListId);
+      document.getElementById('tasks-grid').innerHTML = renderTasks(getCurrentList(), currentListId);
+      bindTaskActions(document.getElementById('tasks-grid'), refreshTasks);
+    }
+
+    renderLayout();
+  } catch (err) {
+    container.innerHTML = `
+      <div class="empty-state glass">
+        <p>${escapeHtml(err.message)}</p>
+        <button type="button" class="btn btn--primary" id="btn-retry-tasks">Reintentar</button>
+      </div>
+    `;
+    document.getElementById('btn-retry-tasks').addEventListener('click', () => renderTareas(container));
+  }
+}

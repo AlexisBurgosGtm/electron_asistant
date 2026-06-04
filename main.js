@@ -1,6 +1,9 @@
-const { app, BrowserWindow } = require('electron');
 const path = require('path');
+const { app, BrowserWindow } = require('electron');
+const appPaths = require('./server/appPaths');
 const { startServer, stopServer, PORT } = require('./server');
+
+const ICON_PATH = path.join(__dirname, 'public', 'logo.png');
 
 let mainWindow = null;
 
@@ -13,6 +16,7 @@ async function createWindow() {
     minWidth: 900,
     minHeight: 600,
     backgroundColor: '#0a1628',
+    icon: ICON_PATH,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -28,7 +32,11 @@ async function createWindow() {
   });
 }
 
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+  appPaths.initPaths(app);
+  await appPaths.ensureDataFiles();
+  await createWindow();
+});
 
 app.on('window-all-closed', async () => {
   await stopServer();

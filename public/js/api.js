@@ -29,4 +29,13 @@ export const api = {
   updateMantenimiento: (id, data) => request(`/mantenimiento/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   deleteMantenimiento: (id) => request(`/mantenimiento/${id}`, { method: 'DELETE' }),
   ejecutarMantenimiento: (id) => request(`/mantenimiento/${id}/ejecutar`, { method: 'POST' }),
+  getWhatsAppStatus: () => request('/whatsapp/status'),
+  getWhatsAppMessages: () => request('/whatsapp/messages'),
+  startWhatsApp: () => request('/whatsapp/start', { method: 'POST' }),
+  logoutWhatsApp: () => request('/whatsapp/logout', { method: 'POST' }),
+  getGoogleStatus: () => request('/google/status'),
+  getGoogleAuthUrl: () => request('/google/auth-url'),
+  getGoogleTasks: () => request('/google/tasks'),
+  completeGoogleTask: (listId, taskId) => request(`/google/tasks/${listId}/${taskId}/complete`, { method: 'POST' }),
+  logoutGoogle: () => request('/google/logout', { method: 'POST' }),
 };

@@ -184,13 +184,15 @@ export function bindFormEvents(form, close, onSave, afterSave) {
     try {
       form.btnTestForm.disabled = true;
       const { api } = await import('./api.js');
-      const { notifyWithVoice } = await import('./voice.js');
+      const { speak } = await import('./tts.js');
       const data = getFormData(form);
       const result = await api.testConexionData(data);
-      notifyWithVoice(result.mensaje, 'success');
+      showToast(result.mensaje, 'success');
+      speak(result.mensaje);
     } catch (err) {
-      const { notifyWithVoice } = await import('./voice.js');
-      notifyWithVoice(err.message, 'error');
+      const { speak } = await import('./tts.js');
+      showToast(err.message, 'error');
+      speak(err.message);
     } finally {
       form.btnTestForm.disabled = false;
     }

@@ -2,20 +2,17 @@ import { api } from './api.js';
 import { renderHome } from './pages/home.js';
 import { renderConexiones, openNewConexionModal } from './pages/conexiones.js';
 import { renderMantenimiento, openNewComandoModal } from './pages/mantenimiento.js';
-import {
-  initVoice,
-  onVoiceCommand,
-  parseTestConnectionCommand,
-  findComandoByVoz,
-  speak,
-  notifyWithVoice,
-} from './voice.js';
-import { runConnectionTestByName, runMantenimientoComando } from './services/connections.js';
+import { renderWhatsapp, cleanupWhatsappPage } from './pages/whatsapp.js';
+import { renderTareas } from './pages/tareas.js';
+import { initWhatsAppListener } from './services/whatsapp.js';
+import { initTts } from './tts.js';
 
 const routes = {
   '/': { title: 'Inicio', icon: 'fa-house', render: renderHome },
   '/conexiones': { title: 'Conexiones', icon: 'fa-plug', render: renderConexiones },
   '/mantenimiento': { title: 'Mantenimiento DB', icon: 'fa-screwdriver-wrench', render: renderMantenimiento },
+  '/tareas': { title: 'Tareas', icon: 'fa-list-check', render: renderTareas },
+  '/whatsapp': { title: 'Whatsapp', icon: 'fa-brands fa-whatsapp', render: renderWhatsapp },
 };
 
 let currentRoute = '/';
@@ -65,6 +62,10 @@ function renderTopbarActions() {
 }
 
 async function renderPage() {
+  if (currentRoute !== '/whatsapp') {
+    cleanupWhatsappPage();
+  }
+
   const route = routes[currentRoute];
   document.getElementById('page-title').textContent = route.title;
   renderTopbarActions();
@@ -95,30 +96,6 @@ async function checkServerStatus() {
   }
 }
 
-async function handleVoiceCommand(transcript) {
-  const testName = parseTestConnectionCommand(transcript);
-  if (testName) {
-    speak(`Probando conexión ${testName}`);
-    await runConnectionTestByName(testName);
-    return;
-  }
-
-  try {
-    const comandos = await api.getMantenimiento();
-    const comando = findComandoByVoz(comandos, transcript);
-    if (comando) {
-      speak(`Ejecutando ${comando.comandoVoz}`);
-      await runMantenimientoComando(comando);
-      return;
-    }
-  } catch (err) {
-    notifyWithVoice(err.message, 'error');
-    return;
-  }
-
-  notifyWithVoice('Comando de voz no reconocido', 'error');
-}
-
 window.__reloadConexiones = async () => {
   if (currentRoute === '/conexiones') {
     await renderPage();
@@ -142,5 +119,5 @@ navigate(getRoute());
 checkServerStatus();
 setInterval(checkServerStatus, 30000);
 
-initVoice();
-onVoiceCommand(handleVoiceCommand);
+initTts();
+initWhatsAppListener();

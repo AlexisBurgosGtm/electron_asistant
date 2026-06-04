@@ -1,5 +1,11 @@
 node_modules/
+.cache/
 dist/
 *.log
 .DS_Store
 Thumbs.db
+.wwebjs_auth/
+.wwebjs_cache/
+google-credentials.json
+google-tokens.json
+build/icon.ico

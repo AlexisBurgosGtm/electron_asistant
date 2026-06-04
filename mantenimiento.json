@@ -1,1 +1,14 @@
-[]
+[
+  {
+    "id": "1",
+    "conexionId": "1",
+    "nombre": "REDUCIR BASE DE DATOS",
+    "query": "DBCC SHRINKDATABASE (DB_A6478C_mercadosv2,25);"
+  },
+  {
+    "id": "2",
+    "conexionId": "3",
+    "nombre": "REDUCIR XELASOL",
+    "query": "DBCC SHRINKDATABASE (db_a6478c_sygmapos,25);"
+  }
+]

@@ -30,12 +30,12 @@ export async function renderHome(container) {
     </div>
 
     <div class="voice-hints glass">
-      <h3><i class="fa-solid fa-comment-dots"></i> Comandos de voz disponibles</h3>
+      <h3><i class="fa-solid fa-volume-high"></i> Texto a voz</h3>
       <ul>
-        <li><code>prueba la conexion a NOMBRE</code> — Prueba una conexión registrada</li>
-        <li><code>COMANDO DE VOZ</code> — Ejecuta una query de Mantenimiento DB</li>
+        <li>Pruebas de conexión y ejecución de mantenimiento leen el resultado en voz alta</li>
+        <li>WhatsApp puede leer mensajes entrantes si activas la opción en esa sección</li>
+        <li>En Tareas puedes escuchar tus pendientes de Google Tasks</li>
       </ul>
-      <p class="voice-hints__note">Activa el micrófono desde la barra lateral para usar reconocimiento de voz.</p>
     </div>
   `;
 }

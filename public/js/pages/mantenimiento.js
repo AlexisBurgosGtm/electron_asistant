@@ -18,8 +18,8 @@ function getComandoFormHtml(comando, conexiones = []) {
     <form id="comando-form" novalidate>
       <div class="form-grid">
         <div class="form-group form-group--full">
-          <label for="cmd-nombre">Nombre (opcional)</label>
-          <input type="text" id="cmd-nombre" name="nombre" value="${escapeHtml(c.nombre || '')}" placeholder="Descripción del comando">
+          <label for="cmd-nombre">Nombre</label>
+          <input type="text" id="cmd-nombre" name="nombre" value="${escapeHtml(c.nombre || '')}" required placeholder="Descripción del comando">
         </div>
         <div class="form-group form-group--full">
           <label for="cmd-conexionId">Conexión</label>
@@ -27,10 +27,6 @@ function getComandoFormHtml(comando, conexiones = []) {
             <option value="">Seleccionar conexión...</option>
             ${options}
           </select>
-        </div>
-        <div class="form-group form-group--full">
-          <label for="cmd-comandoVoz">Comando de voz</label>
-          <input type="text" id="cmd-comandoVoz" name="comandoVoz" value="${escapeHtml(c.comandoVoz || '')}" required placeholder="ej: muestra inventario">
         </div>
         <div class="form-group form-group--full">
           <label for="cmd-query">Query SQL</label>
@@ -48,7 +44,6 @@ function getFormData(form) {
   return {
     nombre: form.querySelector('#cmd-nombre').value.trim(),
     conexionId: form.querySelector('#cmd-conexionId').value,
-    comandoVoz: form.querySelector('#cmd-comandoVoz').value.trim(),
     query: form.querySelector('#cmd-query').value.trim(),
   };
 }
@@ -58,7 +53,7 @@ function bindComandoForm(form, close, onSave, afterSave) {
     e.preventDefault();
     const data = getFormData(form);
 
-    if (!data.conexionId || !data.query || !data.comandoVoz) {
+    if (!data.conexionId || !data.query || !data.nombre) {
       showToast('Completa todos los campos obligatorios', 'error');
       return;
     }
@@ -182,7 +177,7 @@ export async function renderMantenimiento(container) {
       <div class="empty-state glass">
         <i class="fa-solid fa-screwdriver-wrench"></i>
         <h3>Sin comandos de mantenimiento</h3>
-        <p>Agrega queries SQL asociadas a una conexión y un comando de voz para ejecutarlas.</p>
+        <p>Agrega queries SQL asociadas a una conexión para ejecutarlas manualmente.</p>
         <button class="btn btn--primary" id="btn-first-comando" type="button">
           <i class="fa-solid fa-plus"></i> Agregar comando
         </button>
@@ -200,7 +195,6 @@ export async function renderMantenimiento(container) {
             <th>Nombre</th>
             <th>Conexión</th>
             <th>Query</th>
-            <th>Comando de voz</th>
             <th>Acciones</th>
           </tr>
         </thead>
@@ -210,7 +204,6 @@ export async function renderMantenimiento(container) {
               <td>${escapeHtml(c.nombre || '—')}</td>
               <td><span class="table-tag"><i class="fa-solid fa-plug"></i> ${escapeHtml(conexionMap[c.conexionId] || 'Desconocida')}</span></td>
               <td><code class="query-preview">${escapeHtml(c.query)}</code></td>
-              <td><span class="table-tag table-tag--voice"><i class="fa-solid fa-microphone"></i> ${escapeHtml(c.comandoVoz)}</span></td>
               <td class="table-actions">
                 <button class="btn btn--ghost btn--sm btn-run" data-id="${c.id}" title="Ejecutar">
                   <i class="fa-solid fa-play"></i>

@@ -1,5 +1,6 @@
 import { api } from '../api.js';
-import { notifyWithVoice } from '../voice.js';
+import { showToast } from '../utils.js';
+import { speak } from '../tts.js';
 
 export async function runConnectionTest(id, nombre) {
   try {
@@ -7,38 +8,29 @@ export async function runConnectionTest(id, nombre) {
     const msg = nombre
       ? `Conexión ${nombre}: ${result.mensaje}`
       : result.mensaje;
-    notifyWithVoice(msg, 'success');
+    showToast(msg, 'success');
+    speak(msg);
     return result;
   } catch (err) {
     const msg = nombre
       ? `Conexión ${nombre}: ${err.message}`
       : err.message;
-    notifyWithVoice(msg, 'error');
+    showToast(msg, 'error');
+    speak(msg);
     throw err;
   }
-}
-
-export async function runConnectionTestByName(nombre) {
-  const conexiones = await api.getConexiones();
-  const { findConexionByName } = await import('../voice.js');
-  const conexion = findConexionByName(conexiones, nombre);
-
-  if (!conexion) {
-    notifyWithVoice(`No se encontró la conexión ${nombre}`, 'error');
-    return null;
-  }
-
-  return runConnectionTest(conexion.id, conexion.nombre);
 }
 
 export async function runMantenimientoComando(comando) {
   try {
     const result = await api.ejecutarMantenimiento(comando.id);
     const msg = result.mensaje || `Query ejecutada. ${result.rowCount ?? 0} filas afectadas.`;
-    notifyWithVoice(msg, 'success');
+    showToast(msg, 'success');
+    speak(msg);
     return result;
   } catch (err) {
-    notifyWithVoice(err.message, 'error');
+    showToast(err.message, 'error');
+    speak(err.message);
     throw err;
   }
 }
