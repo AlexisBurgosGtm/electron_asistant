@@ -44,8 +44,10 @@
     },
     "files": [
       "main.js",
+      "electronBridge.js",
       "server/**/*",
       "public/**/*",
+      "build/icon.ico",
       "conexiones.json",
       "mantenimiento.json",
       "google-credentials.json.example",

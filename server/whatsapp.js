@@ -16,6 +16,7 @@ let client = null;
 let initializing = false;
 const sseClients = new Set();
 const messages = [];
+const processedMessageIds = new Set();
 
 function getAuthPath() {
   return appPaths.whatsappAuthPath();
@@ -39,8 +40,9 @@ function getPuppeteerOptions() {
   };
 
   try {
-    const puppeteer = require('puppeteer');
-    options.executablePath = puppeteer.executablePath();
+    const puppeteer = appPaths.resolveModule('puppeteer');
+    const execPath = puppeteer.executablePath();
+    if (execPath) options.executablePath = execPath;
   } catch (err) {
     console.warn('WhatsApp: no se pudo resolver Chromium:', err.message);
   }
@@ -75,6 +77,13 @@ function addMessage(entry) {
   broadcast({ type: 'message', message: entry });
 }
 
+function trimProcessedIds() {
+  if (processedMessageIds.size <= 500) return;
+  const keep = messages.slice(0, 200).map((m) => m.id);
+  processedMessageIds.clear();
+  keep.forEach((id) => processedMessageIds.add(id));
+}
+
 function isStatusMessage(msg) {
   const from = (msg.from || '').toLowerCase();
   const to = (msg.to || '').toLowerCase();
@@ -96,6 +105,52 @@ function shouldProcessMessage(msg) {
   return true;
 }
 
+function buildMessageEntry(msg) {
+  return {
+    id: msg.id?._serialized || `${Date.now()}-${Math.random()}`,
+    from: msg.from || 'desconocido',
+    chatName: msg.from || 'desconocido',
+    body: (msg.body || '').trim(),
+    type: msg.type,
+    timestamp: msg.timestamp ? msg.timestamp * 1000 : Date.now(),
+    fromMe: false,
+  };
+}
+
+function handleIncomingMessage(msg) {
+  if (!shouldProcessMessage(msg)) return;
+
+  const entry = buildMessageEntry(msg);
+  if (processedMessageIds.has(entry.id)) return;
+
+  processedMessageIds.add(entry.id);
+  trimProcessedIds();
+  addMessage(entry);
+
+  Promise.all([
+    msg.getContact().catch(() => null),
+    msg.getChat().catch(() => null),
+  ]).then(([contact, chat]) => {
+    const stored = messages.find((m) => m.id === entry.id);
+    if (!stored) return;
+
+    if (contact) {
+      stored.from = contact.pushname || contact.name || contact.number || stored.from;
+    }
+    if (chat) {
+      stored.chatName = chat.name || stored.from;
+    }
+    broadcast({ type: 'message_update', message: stored });
+  }).catch(() => {
+    /* ignore */
+  });
+}
+
+function bindMessageEvents(waClient) {
+  waClient.on('message', handleIncomingMessage);
+  waClient.on('message_create', handleIncomingMessage);
+}
+
 async function createClient() {
   if (client || initializing) return;
 
@@ -108,6 +163,10 @@ async function createClient() {
   client = new Client({
     authStrategy: new LocalAuth({ dataPath: getAuthPath() }),
     puppeteer: getPuppeteerOptions(),
+    webVersionCache: {
+      type: 'local',
+      path: appPaths.whatsappWebCachePath(),
+    },
   });
 
   client.on('qr', async (qr) => {
@@ -151,35 +210,7 @@ async function createClient() {
     broadcast({ type: 'status', ...getPublicState() });
   });
 
-  client.on('message', async (msg) => {
-    if (!shouldProcessMessage(msg)) return;
-
-    let fromName = msg.from;
-    try {
-      const contact = await msg.getContact();
-      fromName = contact.pushname || contact.name || contact.number || msg.from;
-    } catch {
-      /* usar msg.from */
-    }
-
-    let chatName = fromName;
-    try {
-      const chat = await msg.getChat();
-      chatName = chat.name || fromName;
-    } catch {
-      /* ignore */
-    }
-
-    addMessage({
-      id: msg.id?._serialized || `${Date.now()}-${Math.random()}`,
-      from: fromName,
-      chatName,
-      body: msg.body.trim(),
-      type: msg.type,
-      timestamp: msg.timestamp ? msg.timestamp * 1000 : Date.now(),
-      fromMe: false,
-    });
-  });
+  bindMessageEvents(client);
 
   try {
     await client.initialize();
@@ -195,14 +226,26 @@ async function createClient() {
 
 function attachSse(req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
   sseClients.add(res);
   res.write(`data: ${JSON.stringify({ type: 'init', ...getPublicState(), messages })}\n\n`);
 
-  req.on('close', () => sseClients.delete(res));
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(': ping\n\n');
+    } catch {
+      clearInterval(heartbeat);
+    }
+  }, 20000);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    sseClients.delete(res);
+  });
 }
 
 async function startSession() {
@@ -233,6 +276,7 @@ async function logoutSession() {
   state.error = null;
   state.info = null;
   messages.length = 0;
+  processedMessageIds.clear();
   broadcast({ type: 'status', ...getPublicState() });
   return getPublicState();
 }

@@ -61,6 +61,23 @@ function puppeteerCachePath() {
   return path.join(getDataDir(), 'puppeteer-cache');
 }
 
+function whatsappWebCachePath() {
+  return path.join(getDataDir(), '.wwebjs_cache');
+}
+
+function resolveModule(moduleName) {
+  if (!isPackaged) {
+    return require(moduleName);
+  }
+
+  const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', moduleName);
+  try {
+    return require(unpacked);
+  } catch {
+    return require(moduleName);
+  }
+}
+
 function publicPath() {
   return path.join(getBundleDir(), 'public');
 }
@@ -140,6 +157,7 @@ async function ensureDataFiles() {
   await migrateGoogleCredentials();
   await fs.mkdir(puppeteerCachePath(), { recursive: true });
   await fs.mkdir(whatsappAuthPath(), { recursive: true });
+  await fs.mkdir(whatsappWebCachePath(), { recursive: true });
 }
 
 function getAppInfo() {
@@ -162,7 +180,9 @@ module.exports = {
   googleCredentialsPath,
   googleTokensPath,
   whatsappAuthPath,
+  whatsappWebCachePath,
   puppeteerCachePath,
+  resolveModule,
   publicPath,
   getAppInfo,
 };

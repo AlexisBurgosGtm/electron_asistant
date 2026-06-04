@@ -355,6 +355,15 @@ function createApp() {
     res.json(appPaths.getAppInfo());
   });
 
+  app.post('/api/window/hide-to-tray', (_req, res) => {
+    try {
+      require('../electronBridge').emit('hide-to-tray');
+      res.json({ ok: true });
+    } catch {
+      res.status(503).json({ error: 'Solo disponible en la app de escritorio' });
+    }
+  });
+
   app.get('/api/whatsapp/status', (_req, res) => {
     res.json(whatsapp.getPublicState());
   });

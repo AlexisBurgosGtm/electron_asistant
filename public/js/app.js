@@ -6,6 +6,7 @@ import { renderWhatsapp, cleanupWhatsappPage } from './pages/whatsapp.js';
 import { renderTareas } from './pages/tareas.js';
 import { initWhatsAppListener } from './services/whatsapp.js';
 import { initTts } from './tts.js';
+import { showToast } from './utils.js';
 
 const routes = {
   '/': { title: 'Inicio', icon: 'fa-house', render: renderHome },
@@ -41,23 +42,41 @@ function renderNav() {
 
 function renderTopbarActions() {
   const actions = document.getElementById('topbar-actions');
+  let extra = '';
 
   if (currentRoute === '/conexiones') {
-    actions.innerHTML = `
+    extra = `
       <button class="btn btn--primary" id="btn-add-conexion">
         <i class="fa-solid fa-plus"></i> Nueva conexión
       </button>
     `;
-    document.getElementById('btn-add-conexion').addEventListener('click', openNewConexionModal);
   } else if (currentRoute === '/mantenimiento') {
-    actions.innerHTML = `
+    extra = `
       <button class="btn btn--primary" id="btn-add-comando" type="button">
         <i class="fa-solid fa-plus"></i> Nuevo comando
       </button>
     `;
+  }
+
+  actions.innerHTML = `
+    <button class="btn btn--ghost" id="btn-hide-tray" type="button" title="Minimizar a bandeja del sistema">
+      <i class="fa-solid fa-down-left-and-up-right-to-center"></i> A bandeja
+    </button>
+    ${extra}
+  `;
+
+  document.getElementById('btn-hide-tray').addEventListener('click', async () => {
+    try {
+      await api.hideToTray();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  });
+
+  if (currentRoute === '/conexiones') {
+    document.getElementById('btn-add-conexion').addEventListener('click', openNewConexionModal);
+  } else if (currentRoute === '/mantenimiento') {
     document.getElementById('btn-add-comando').addEventListener('click', openNewComandoModal);
-  } else {
-    actions.innerHTML = '';
   }
 }
 

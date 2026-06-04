@@ -138,7 +138,7 @@ function handleWhatsAppEvent(container, data) {
   if (data.type === 'init' || data.type === 'status') {
     refreshState(container);
   }
-  if (data.type === 'message') {
+  if (data.type === 'message' || data.type === 'message_update') {
     refreshState(container);
   }
 }
