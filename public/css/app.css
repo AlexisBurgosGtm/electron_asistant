@@ -1022,6 +1022,11 @@ html, body {
   color: var(--text-secondary);
   min-height: 1.2em;
   margin-bottom: 1rem;
+  word-break: break-word;
+}
+
+.wa-user-info--error {
+  color: #f87171;
 }
 
 .wa-status {
@@ -1225,6 +1230,65 @@ html, body {
   display: flex;
   gap: 0.5rem;
   flex-wrap: wrap;
+}
+
+.tasks-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.tasks-section__title,
+.tasks-section__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.tasks-section__summary {
+  cursor: pointer;
+  list-style: none;
+  margin-bottom: 0;
+  padding: 0.5rem 0;
+  user-select: none;
+}
+
+.tasks-section__summary::-webkit-details-marker {
+  display: none;
+}
+
+.tasks-section__summary::before {
+  content: '\f054';
+  font-family: 'Font Awesome 6 Free';
+  font-weight: 900;
+  font-size: 0.65rem;
+  transition: transform 0.2s ease;
+}
+
+.tasks-section--completed[open] .tasks-section__summary::before {
+  transform: rotate(90deg);
+}
+
+.tasks-section--completed .tasks-grid {
+  margin-top: 0.75rem;
+}
+
+.tasks-section__count {
+  font-size: 0.72rem;
+  background: rgba(59, 130, 246, 0.15);
+  color: var(--accent-light);
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+}
+
+.tasks-section__empty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  padding: 0.5rem 0;
 }
 
 .tasks-grid {

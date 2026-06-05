@@ -1,10 +1,21 @@
 import { api } from '../api.js';
 import { showToast, confirmDialog } from '../utils.js';
-import { speak } from '../tts.js';
-import { isWhatsAppTtsEnabled, setWhatsAppTtsEnabled, onWhatsAppTtsChange } from '../services/whatsapp.js';
+import { speakQueued } from '../tts.js';
+import {
+  isWhatsAppTtsEnabled,
+  setWhatsAppTtsEnabled,
+  onWhatsAppTtsChange,
+  isWhatsAppTtsSenderOnly,
+  setWhatsAppTtsSenderOnly,
+  onWhatsAppTtsSenderOnlyChange,
+  loadWhatsAppConfig,
+  getContactDisplayName,
+  formatMessageForSpeech,
+} from '../services/whatsapp.js';
 
 let pollTimer = null;
 let unsubscribeTts = null;
+let unsubscribeSenderOnly = null;
 let cachedMessages = [];
 
 function escapeHtml(text) {
@@ -48,7 +59,7 @@ function renderMessages(messages) {
   return messages.map((m) => `
     <article class="wa-message glass" data-id="${escapeHtml(m.id)}">
       <div class="wa-message__header">
-        <span class="wa-message__from"><i class="fa-solid fa-user"></i> ${escapeHtml(m.chatName || m.from)}</span>
+        <span class="wa-message__from"><i class="fa-solid fa-user"></i> ${escapeHtml(getContactDisplayName(m))}</span>
         <time>${formatTime(m.timestamp)}</time>
       </div>
       <p class="wa-message__body">${escapeHtml(m.body || `[${m.type || 'mensaje'}]`)}</p>
@@ -63,7 +74,7 @@ function bindMessageEvents(container) {
   container.querySelectorAll('.btn-speak-msg').forEach((btn) => {
     btn.addEventListener('click', () => {
       const msg = cachedMessages.find((m) => m.id === btn.dataset.id);
-      if (msg) speak(`Mensaje de ${msg.chatName || msg.from}. ${msg.body || ''}`);
+      if (msg) speakQueued(formatMessageForSpeech(msg));
     });
   });
 }
@@ -82,9 +93,15 @@ function updateView(container, state, messages) {
   }
 
   if (userEl) {
-    userEl.textContent = state.info?.pushname
-      ? `Sesión: ${state.info.pushname} (${state.info.wid || ''})`
-      : '';
+    if (state.status === 'error' && state.error) {
+      userEl.textContent = `Error: ${state.error}`;
+      userEl.className = 'wa-user-info wa-user-info--error';
+    } else {
+      userEl.className = 'wa-user-info';
+      userEl.textContent = state.info?.pushname
+        ? `Sesión: ${state.info.pushname} (${state.info.wid || ''})`
+        : '';
+    }
   }
 
   if (qrPanel) {
@@ -144,7 +161,9 @@ function handleWhatsAppEvent(container, data) {
 }
 
 export async function renderWhatsapp(container) {
+  await loadWhatsAppConfig();
   const ttsOn = isWhatsAppTtsEnabled();
+  const senderOnly = isWhatsAppTtsSenderOnly();
 
   container.innerHTML = `
     <div class="wa-layout">
@@ -169,6 +188,11 @@ export async function renderWhatsapp(container) {
           Leer mensajes entrantes en voz alta
         </label>
 
+        <label class="wa-tts-toggle checkbox-group">
+          <input type="checkbox" id="wa-tts-sender-only" ${senderOnly ? 'checked' : ''}>
+          Solo anunciar remitente (sin leer el mensaje)
+        </label>
+
         <div id="wa-qr-panel" hidden></div>
       </div>
 
@@ -187,14 +211,33 @@ export async function renderWhatsapp(container) {
     showToast(ttsToggle.checked ? 'Lectura en voz alta activada' : 'Lectura en voz alta desactivada', 'info');
   });
 
+  const senderOnlyToggle = container.querySelector('#wa-tts-sender-only');
+  senderOnlyToggle.addEventListener('change', async () => {
+    await setWhatsAppTtsSenderOnly(senderOnlyToggle.checked);
+    showToast(
+      senderOnlyToggle.checked
+        ? 'Solo se anunciará el remitente'
+        : 'Se leerá el mensaje completo',
+      'info'
+    );
+  });
+
   unsubscribeTts = onWhatsAppTtsChange((enabled) => {
     ttsToggle.checked = enabled;
   });
 
+  unsubscribeSenderOnly = onWhatsAppTtsSenderOnlyChange((enabled) => {
+    senderOnlyToggle.checked = enabled;
+  });
+
   container.querySelector('#wa-start-btn').addEventListener('click', async () => {
     try {
-      await api.startWhatsApp();
-      showToast('Iniciando WhatsApp, espera el código QR', 'info');
+      const result = await api.startWhatsApp();
+      if (result.status === 'error' && result.error) {
+        showToast(result.error, 'error');
+      } else {
+        showToast('Iniciando WhatsApp, espera el código QR', 'info');
+      }
       await refreshState(container);
     } catch (err) {
       showToast(err.message, 'error');
@@ -222,7 +265,7 @@ export async function renderWhatsapp(container) {
 
   await refreshState(container);
 
-  pollTimer = setInterval(() => refreshState(container), 15000);
+  pollTimer = setInterval(() => refreshState(container), 3000);
 }
 
 export function cleanupWhatsappPage() {
@@ -233,6 +276,10 @@ export function cleanupWhatsappPage() {
   if (unsubscribeTts) {
     unsubscribeTts();
     unsubscribeTts = null;
+  }
+  if (unsubscribeSenderOnly) {
+    unsubscribeSenderOnly();
+    unsubscribeSenderOnly = null;
   }
   window.__onWhatsAppEvent = null;
 }

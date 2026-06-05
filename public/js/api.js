@@ -17,6 +17,8 @@ async function request(path, options = {}) {
 
 export const api = {
   getStatus: () => request('/status'),
+  getConfig: () => request('/config'),
+  updateConfig: (data) => request('/config', { method: 'PUT', body: JSON.stringify(data) }),
   hideToTray: () => request('/window/hide-to-tray', { method: 'POST' }),
   getConexiones: () => request('/conexiones'),
   getConexion: (id) => request(`/conexiones/${id}`),

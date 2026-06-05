@@ -20,26 +20,20 @@ function formatDueDate(due) {
 }
 
 function renderTaskLists(grouped, activeListId) {
-  return grouped.map((list) => `
+  return grouped.map((list) => {
+    const pendingCount = (list.tasks || []).filter((t) => t.status !== 'completed').length;
+    return `
     <button type="button" class="tasks-list-tab ${list.id === activeListId ? 'active' : ''}" data-list-id="${list.id}">
       <i class="fa-solid fa-list-check"></i>
       ${escapeHtml(list.title)}
-      <span class="tasks-count">${list.tasks.length}</span>
+      <span class="tasks-count">${pendingCount}</span>
     </button>
-  `).join('');
+  `;
+  }).join('');
 }
 
-function renderTasks(list, listId) {
-  if (!list?.tasks?.length) {
-    return `
-      <div class="empty-state glass">
-        <i class="fa-solid fa-check-double"></i>
-        <p>No hay tareas en esta lista</p>
-      </div>
-    `;
-  }
-
-  return list.tasks.map((task) => `
+function renderTaskCard(task, listId) {
+  return `
     <article class="task-card glass ${task.status === 'completed' ? 'task-card--done' : ''}">
       <div class="task-card__header">
         <h4>${escapeHtml(task.title)}</h4>
@@ -58,7 +52,49 @@ function renderTasks(list, listId) {
         ` : ''}
       </div>
     </article>
-  `).join('');
+  `;
+}
+
+function renderTasks(list, listId) {
+  if (!list?.tasks?.length) {
+    return `
+      <div class="empty-state glass">
+        <i class="fa-solid fa-check-double"></i>
+        <p>No hay tareas en esta lista</p>
+      </div>
+    `;
+  }
+
+  const pending = list.tasks.filter((t) => t.status !== 'completed');
+  const completed = list.tasks.filter((t) => t.status === 'completed');
+
+  const pendingSection = `
+    <section class="tasks-section tasks-section--pending">
+      <h4 class="tasks-section__title">
+        <i class="fa-regular fa-circle"></i> Pendientes
+        <span class="tasks-section__count">${pending.length}</span>
+      </h4>
+      <div class="tasks-grid">
+        ${pending.length
+          ? pending.map((task) => renderTaskCard(task, listId)).join('')
+          : '<p class="tasks-section__empty">No hay tareas pendientes</p>'}
+      </div>
+    </section>
+  `;
+
+  const completedSection = completed.length ? `
+    <details class="tasks-section tasks-section--completed">
+      <summary class="tasks-section__summary">
+        <i class="fa-solid fa-circle-check"></i> Completadas
+        <span class="tasks-section__count">${completed.length}</span>
+      </summary>
+      <div class="tasks-grid">
+        ${completed.map((task) => renderTaskCard(task, listId)).join('')}
+      </div>
+    </details>
+  ` : '';
+
+  return `${pendingSection}${completedSection}`;
 }
 
 function bindTaskActions(container, onComplete) {
@@ -183,7 +219,7 @@ export async function renderTareas(container) {
                 </button>
               </div>
             </div>
-            <div class="tasks-grid" id="tasks-grid">
+            <div class="tasks-sections" id="tasks-grid">
               ${renderTasks(activeList, currentListId)}
             </div>
           </section>

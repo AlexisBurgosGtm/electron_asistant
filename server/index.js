@@ -45,6 +45,37 @@ async function writeMantenimiento(comandos) {
   await fs.writeFile(appPaths.mantenimientoPath(), JSON.stringify(comandos, null, 2), 'utf-8');
 }
 
+const DEFAULT_CONFIG = {
+  whatsapp: {
+    ttsAnnounceSenderOnly: false,
+  },
+};
+
+function mergeConfig(data) {
+  return {
+    ...DEFAULT_CONFIG,
+    ...data,
+    whatsapp: { ...DEFAULT_CONFIG.whatsapp, ...(data?.whatsapp || {}) },
+  };
+}
+
+async function readConfig() {
+  try {
+    const data = await fs.readFile(appPaths.configPath(), 'utf-8');
+    return mergeConfig(JSON.parse(data));
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      await writeConfig(DEFAULT_CONFIG);
+      return { ...DEFAULT_CONFIG };
+    }
+    throw err;
+  }
+}
+
+async function writeConfig(config) {
+  await fs.writeFile(appPaths.configPath(), JSON.stringify(mergeConfig(config), null, 2), 'utf-8');
+}
+
 function generateId(items) {
   const ids = items.map((c) => parseInt(c.id, 10)).filter((n) => !Number.isNaN(n));
   return String(ids.length ? Math.max(...ids) + 1 : 1);
@@ -344,6 +375,25 @@ function createApp() {
       res.json({ ...result, comando: comando.nombre });
     } catch (err) {
       res.status(500).json({ ok: false, mensaje: err.message });
+    }
+  });
+
+  app.get('/api/config', async (_req, res) => {
+    try {
+      res.json(await readConfig());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/config', async (req, res) => {
+    try {
+      const current = await readConfig();
+      const updated = mergeConfig({ ...current, ...req.body, whatsapp: { ...current.whatsapp, ...(req.body?.whatsapp || {}) } });
+      await writeConfig(updated);
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
   });
 

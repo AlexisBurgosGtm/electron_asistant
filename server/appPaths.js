@@ -45,6 +45,10 @@ function mantenimientoPath() {
   return path.join(getDataDir(), 'mantenimiento.json');
 }
 
+function configPath() {
+  return path.join(getDataDir(), 'config.json');
+}
+
 function googleCredentialsPath() {
   return path.join(getDataDir(), 'google-credentials.json');
 }
@@ -70,12 +74,37 @@ function resolveModule(moduleName) {
     return require(moduleName);
   }
 
-  const unpacked = path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', moduleName);
-  try {
-    return require(unpacked);
-  } catch {
-    return require(moduleName);
+  const candidates = [
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', moduleName),
+    path.join(getBundleDir(), 'node_modules', moduleName),
+  ];
+
+  for (const candidate of candidates) {
+    try {
+      return require(candidate);
+    } catch {
+      /* siguiente */
+    }
   }
+
+  return require(moduleName);
+}
+
+function resolveModulePath(moduleName) {
+  if (!isPackaged) {
+    return path.join(getBundleDir(), 'node_modules', moduleName);
+  }
+
+  const candidates = [
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', moduleName),
+    path.join(getBundleDir(), 'node_modules', moduleName),
+  ];
+
+  for (const candidate of candidates) {
+    if (fsSync.existsSync(candidate)) return candidate;
+  }
+
+  return path.join(getBundleDir(), 'node_modules', moduleName);
 }
 
 function publicPath() {
@@ -150,6 +179,12 @@ async function ensureDataFiles() {
   );
 
   await copyIfMissing(
+    path.join(getBundleDir(), 'config.json'),
+    configPath(),
+    JSON.stringify({ whatsapp: { ttsAnnounceSenderOnly: false } }, null, 2)
+  );
+
+  await copyIfMissing(
     path.join(getBundleDir(), 'google-credentials.json.example'),
     path.join(getDataDir(), 'google-credentials.json.example')
   );
@@ -177,12 +212,14 @@ module.exports = {
   getIsPackaged,
   conexionesPath,
   mantenimientoPath,
+  configPath,
   googleCredentialsPath,
   googleTokensPath,
   whatsappAuthPath,
   whatsappWebCachePath,
   puppeteerCachePath,
   resolveModule,
+  resolveModulePath,
   publicPath,
   getAppInfo,
 };
