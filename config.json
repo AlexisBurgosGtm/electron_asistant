@@ -1,5 +1,8 @@
 {
   "whatsapp": {
     "ttsAnnounceSenderOnly": false
+  },
+  "conexiones": {
+    "autoPing": true
   }
 }

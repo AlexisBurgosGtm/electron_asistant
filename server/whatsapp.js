@@ -479,6 +479,17 @@ function getMessages() {
   return [...messages];
 }
 
+async function refreshSession() {
+  if (!client || state.status !== 'ready') {
+    return getPublicState();
+  }
+
+  bindMessageEvents(client);
+  await pollUnreadMessages();
+  broadcast({ type: 'status', ...getPublicState() });
+  return getPublicState();
+}
+
 module.exports = {
   attachSse,
   startSession,
@@ -486,4 +497,5 @@ module.exports = {
   destroyWhatsApp,
   getPublicState,
   getMessages,
+  refreshSession,
 };

@@ -1,6 +1,6 @@
 import { api } from './api.js';
 import { renderHome } from './pages/home.js';
-import { renderConexiones, openNewConexionModal } from './pages/conexiones.js';
+import { renderConexiones, openNewConexionModal, cleanupConexionesPage } from './pages/conexiones.js';
 import { renderMantenimiento, openNewComandoModal } from './pages/mantenimiento.js';
 import { renderWhatsapp, cleanupWhatsappPage } from './pages/whatsapp.js';
 import { renderTareas } from './pages/tareas.js';
@@ -83,6 +83,9 @@ function renderTopbarActions() {
 async function renderPage() {
   if (currentRoute !== '/whatsapp') {
     cleanupWhatsappPage();
+  }
+  if (currentRoute !== '/conexiones') {
+    cleanupConexionesPage();
   }
 
   const route = routes[currentRoute];

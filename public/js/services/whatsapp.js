@@ -238,6 +238,20 @@ export function disconnectWhatsAppEvents() {
   pendingTts.clear();
 }
 
+export async function refreshWhatsAppListener() {
+  if (eventSource) {
+    eventSource.close();
+    eventSource = null;
+  }
+  connectWhatsAppEvents();
+  try {
+    await api.refreshWhatsApp();
+  } catch {
+    /* ignore */
+  }
+  await pollMessages();
+}
+
 export function initWhatsAppListener() {
   loadWhatsAppConfig();
   connectWhatsAppEvents();

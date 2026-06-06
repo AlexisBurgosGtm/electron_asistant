@@ -1,4 +1,4 @@
-# Electron Asistant
+# MariAndre
 
 Aplicación Electron con interfaz SPA (vanilla JavaScript) para gestionar conexiones a bases de datos **SQL Server** y **MySQL**.
 

@@ -43,7 +43,7 @@ function ensureTray() {
   if (tray) return;
 
   tray = new Tray(getWindowIcon());
-  tray.setToolTip('Electron Asistant');
+  tray.setToolTip('MariAndre');
 
   tray.on('double-click', showMainWindow);
 
@@ -75,7 +75,7 @@ async function createWindow() {
       contextIsolation: true,
     },
     autoHideMenuBar: true,
-    title: 'Electron Asistant',
+    title: 'MariAndre',
   });
 
   mainWindow.loadURL(`http://localhost:${PORT}`);
@@ -93,7 +93,7 @@ async function createWindow() {
 }
 
 if (process.platform === 'win32') {
-  app.setAppUserModelId('com.electron.asistant');
+  app.setAppUserModelId('com.mariandre.app');
 }
 
 bridge.on('hide-to-tray', hideToTray);

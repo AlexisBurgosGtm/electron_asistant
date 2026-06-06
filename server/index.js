@@ -49,6 +49,9 @@ const DEFAULT_CONFIG = {
   whatsapp: {
     ttsAnnounceSenderOnly: false,
   },
+  conexiones: {
+    autoPing: true,
+  },
 };
 
 function mergeConfig(data) {
@@ -56,6 +59,7 @@ function mergeConfig(data) {
     ...DEFAULT_CONFIG,
     ...data,
     whatsapp: { ...DEFAULT_CONFIG.whatsapp, ...(data?.whatsapp || {}) },
+    conexiones: { ...DEFAULT_CONFIG.conexiones, ...(data?.conexiones || {}) },
   };
 }
 
@@ -277,6 +281,26 @@ function createApp() {
     }
   });
 
+  app.post('/api/conexiones/:id/query', async (req, res) => {
+    try {
+      const query = (req.body?.query || '').trim();
+      if (!query) {
+        return res.status(400).json({ error: 'La consulta SQL no puede estar vacía' });
+      }
+
+      const conexiones = await readConexiones();
+      const conexion = conexiones.find((c) => c.id === req.params.id);
+      if (!conexion) {
+        return res.status(404).json({ error: 'Conexión no encontrada' });
+      }
+
+      const result = await executeQuery(conexion, query);
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message, mensaje: err.message });
+    }
+  });
+
   app.get('/api/mantenimiento', async (_req, res) => {
     try {
       const comandos = await readMantenimiento();
@@ -389,7 +413,12 @@ function createApp() {
   app.put('/api/config', async (req, res) => {
     try {
       const current = await readConfig();
-      const updated = mergeConfig({ ...current, ...req.body, whatsapp: { ...current.whatsapp, ...(req.body?.whatsapp || {}) } });
+      const updated = mergeConfig({
+        ...current,
+        ...req.body,
+        whatsapp: { ...current.whatsapp, ...(req.body?.whatsapp || {}) },
+        conexiones: { ...current.conexiones, ...(req.body?.conexiones || {}) },
+      });
       await writeConfig(updated);
       res.json(updated);
     } catch (err) {
@@ -398,7 +427,7 @@ function createApp() {
   });
 
   app.get('/api/status', (_req, res) => {
-    res.json({ ok: true, puerto: PORT, servicio: 'electron-asistant' });
+    res.json({ ok: true, puerto: PORT, servicio: 'mariandre' });
   });
 
   app.get('/api/app/info', (_req, res) => {
@@ -429,6 +458,15 @@ function createApp() {
   app.post('/api/whatsapp/start', async (_req, res) => {
     try {
       const result = await whatsapp.startSession();
+      res.json(result);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/whatsapp/refresh', async (_req, res) => {
+    try {
+      const result = await whatsapp.refreshSession();
       res.json(result);
     } catch (err) {
       res.status(500).json({ error: err.message });

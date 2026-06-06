@@ -9,6 +9,7 @@ import {
   setWhatsAppTtsSenderOnly,
   onWhatsAppTtsSenderOnlyChange,
   loadWhatsAppConfig,
+  refreshWhatsAppListener,
   getContactDisplayName,
   formatMessageForSpeech,
 } from '../services/whatsapp.js';
@@ -199,6 +200,9 @@ export async function renderWhatsapp(container) {
       <div class="wa-messages-panel glass">
         <div class="wa-messages-header">
           <h3><i class="fa-solid fa-inbox"></i> Mensajes entrantes</h3>
+          <button class="btn btn--ghost btn--sm" id="wa-refresh-btn" type="button" title="Reconectar y buscar mensajes nuevos">
+            <i class="fa-solid fa-rotate"></i> Refrescar
+          </button>
         </div>
         <div class="wa-messages-list" id="wa-messages"></div>
       </div>
@@ -228,6 +232,20 @@ export async function renderWhatsapp(container) {
 
   unsubscribeSenderOnly = onWhatsAppTtsSenderOnlyChange((enabled) => {
     senderOnlyToggle.checked = enabled;
+  });
+
+  container.querySelector('#wa-refresh-btn').addEventListener('click', async () => {
+    const btn = container.querySelector('#wa-refresh-btn');
+    btn.disabled = true;
+    try {
+      await refreshWhatsAppListener();
+      await refreshState(container);
+      showToast('WhatsApp refrescado', 'success');
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   container.querySelector('#wa-start-btn').addEventListener('click', async () => {

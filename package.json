@@ -35,8 +35,8 @@
     "sharp": "^0.34.5"
   },
   "build": {
-    "appId": "com.electron.asistant",
-    "productName": "Electron Asistant",
+    "appId": "com.mariandre.app",
+    "productName": "MariAndre",
     "icon": "build/icon.ico",
     "npmRebuild": false,
     "directories": {
