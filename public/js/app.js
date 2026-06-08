@@ -48,23 +48,23 @@ function renderNav() {
   });
 }
 
-function renderTopbarActions() {
+function renderTopbarActions(routePath = currentRoute) {
   const actions = document.getElementById('topbar-actions');
   let extra = '';
 
-  if (currentRoute === '/conexiones') {
+  if (routePath === '/conexiones') {
     extra = `
       <button class="btn btn--primary" id="btn-add-conexion">
         <i class="fa-solid fa-plus"></i> Nueva conexión
       </button>
     `;
-  } else if (currentRoute === '/servicios-online') {
+  } else if (routePath === '/servicios-online') {
     extra = `
       <button class="btn btn--primary" id="btn-add-servicio" type="button">
         <i class="fa-solid fa-plus"></i> Nuevo servicio
       </button>
     `;
-  } else if (currentRoute === '/mantenimiento') {
+  } else if (routePath === '/mantenimiento') {
     extra = `
       <button class="btn btn--primary" id="btn-add-comando" type="button">
         <i class="fa-solid fa-plus"></i> Nuevo comando
@@ -87,12 +87,12 @@ function renderTopbarActions() {
     }
   });
 
-  if (currentRoute === '/conexiones') {
-    document.getElementById('btn-add-conexion').addEventListener('click', openNewConexionModal);
-  } else if (currentRoute === '/servicios-online') {
-    document.getElementById('btn-add-servicio').addEventListener('click', openNewServicioModal);
-  } else if (currentRoute === '/mantenimiento') {
-    document.getElementById('btn-add-comando').addEventListener('click', openNewComandoModal);
+  if (routePath === '/conexiones') {
+    document.getElementById('btn-add-conexion')?.addEventListener('click', openNewConexionModal);
+  } else if (routePath === '/servicios-online') {
+    document.getElementById('btn-add-servicio')?.addEventListener('click', openNewServicioModal);
+  } else if (routePath === '/mantenimiento') {
+    document.getElementById('btn-add-comando')?.addEventListener('click', openNewComandoModal);
   }
 }
 
@@ -111,6 +111,7 @@ async function renderPage() {
   cleanupOtherPages(routePath);
 
   document.getElementById('page-title').textContent = route.title;
+  renderTopbarActions(routePath);
 
   const content = document.getElementById('content');
   content.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
@@ -120,12 +121,11 @@ async function renderPage() {
   } catch (err) {
     if (generation !== renderGeneration) return;
     content.innerHTML = `<div class="empty-state glass"><p>${err.message}</p></div>`;
+    renderTopbarActions(routePath);
     return;
   }
 
   if (generation !== renderGeneration) return;
-
-  renderTopbarActions();
 }
 
 async function reloadCurrentPage() {

@@ -92,22 +92,23 @@ function stopAllPings() {
   pingTimers.clear();
 }
 
-function getServicioFormHtml(servicio = {}) {
+function getServicioFormHtml(servicio) {
+  const data = servicio || {};
   return `
     <form id="servicio-form" novalidate>
       <div class="form-grid">
         <div class="form-group form-group--full">
           <label for="servicio-nombre">Nombre del servicio</label>
-          <input type="text" id="servicio-nombre" name="nombre" value="${escapeHtml(servicio.nombre || '')}" required placeholder="Mi API">
+          <input type="text" id="servicio-nombre" name="nombre" value="${escapeHtml(data.nombre || '')}" required placeholder="Mi API">
         </div>
         <div class="form-group form-group--full">
           <label for="servicio-url">URL</label>
-          <input type="text" id="servicio-url" name="url" value="${escapeHtml(servicio.url || '')}" required placeholder="ejemplo.com/health o https://...">
+          <input type="text" id="servicio-url" name="url" value="${escapeHtml(data.url || '')}" required placeholder="ejemplo.com/health o https://...">
         </div>
         <div class="form-group form-group--full">
           <label for="servicio-interval">Ping automático</label>
           <select id="servicio-interval" name="pingIntervalMinutes">
-            ${getIntervalOptions(servicio.pingIntervalMinutes || 5)}
+            ${getIntervalOptions(data.pingIntervalMinutes || 5)}
           </select>
         </div>
       </div>
@@ -202,14 +203,14 @@ function bindTableEvents(container, servicios, reload) {
     });
   });
 
-  container.querySelectorAll('.btn-edit').forEach((btn) => {
+  container.querySelectorAll('.btn-edit-servicio').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const servicio = servicios.find((s) => s.id === btn.dataset.id);
+      const servicio = servicios.find((s) => String(s.id) === String(btn.dataset.id));
       if (servicio) openServicioModal(servicio, reload);
     });
   });
 
-  container.querySelectorAll('.btn-delete').forEach((btn) => {
+  container.querySelectorAll('.btn-delete-servicio').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const confirmed = await confirmDialog({
         title: 'Eliminar servicio',
@@ -287,10 +288,10 @@ export async function renderServiciosOnline(container) {
                 <button class="btn btn--ghost btn--sm btn-ping" data-id="${escapeHtml(s.id)}" title="Hacer ping">
                   <i class="fa-solid fa-signal"></i> Ping
                 </button>
-                <button class="btn btn--ghost btn--sm btn-edit" data-id="${escapeHtml(s.id)}" title="Editar">
+                <button class="btn btn--ghost btn--sm btn-edit-servicio" data-id="${escapeHtml(s.id)}" title="Editar">
                   <i class="fa-solid fa-pen"></i>
                 </button>
-                <button class="btn btn--danger btn--sm btn-delete" data-id="${escapeHtml(s.id)}" title="Eliminar">
+                <button class="btn btn--danger btn--sm btn-delete-servicio" data-id="${escapeHtml(s.id)}" title="Eliminar">
                   <i class="fa-solid fa-trash"></i>
                 </button>
               </td>
