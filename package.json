@@ -51,6 +51,7 @@
       "conexiones.json",
       "mantenimiento.json",
       "config.json",
+      "servicios-online.json",
       "google-credentials.json.example",
       "package.json"
     ],

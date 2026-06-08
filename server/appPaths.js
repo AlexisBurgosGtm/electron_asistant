@@ -49,6 +49,10 @@ function configPath() {
   return path.join(getDataDir(), 'config.json');
 }
 
+function serviciosOnlinePath() {
+  return path.join(getDataDir(), 'servicios-online.json');
+}
+
 function googleCredentialsPath() {
   return path.join(getDataDir(), 'google-credentials.json');
 }
@@ -185,6 +189,12 @@ async function ensureDataFiles() {
   );
 
   await copyIfMissing(
+    path.join(getBundleDir(), 'servicios-online.json'),
+    serviciosOnlinePath(),
+    '[]'
+  );
+
+  await copyIfMissing(
     path.join(getBundleDir(), 'google-credentials.json.example'),
     path.join(getDataDir(), 'google-credentials.json.example')
   );
@@ -213,6 +223,7 @@ module.exports = {
   conexionesPath,
   mantenimientoPath,
   configPath,
+  serviciosOnlinePath,
   googleCredentialsPath,
   googleTokensPath,
   whatsappAuthPath,

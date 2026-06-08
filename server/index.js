@@ -45,6 +45,76 @@ async function writeMantenimiento(comandos) {
   await fs.writeFile(appPaths.mantenimientoPath(), JSON.stringify(comandos, null, 2), 'utf-8');
 }
 
+async function readServiciosOnline() {
+  try {
+    const data = await fs.readFile(appPaths.serviciosOnlinePath(), 'utf-8');
+    return JSON.parse(data);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      await fs.writeFile(appPaths.serviciosOnlinePath(), '[]', 'utf-8');
+      return [];
+    }
+    throw err;
+  }
+}
+
+async function writeServiciosOnline(servicios) {
+  await fs.writeFile(appPaths.serviciosOnlinePath(), JSON.stringify(servicios, null, 2), 'utf-8');
+}
+
+function normalizeServicioUrl(url) {
+  const trimmed = (url || '').trim();
+  if (!trimmed) throw new Error('La URL no puede estar vacía');
+  if (!/^https?:\/\//i.test(trimmed)) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
+function normalizePingInterval(minutes) {
+  const value = parseInt(minutes, 10);
+  if (Number.isNaN(value) || value < 5 || value > 120 || value % 5 !== 0) {
+    return 5;
+  }
+  return value;
+}
+
+async function pingServicioUrl(url) {
+  const targetUrl = normalizeServicioUrl(url);
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      signal: controller.signal,
+      redirect: 'follow',
+      headers: { 'User-Agent': 'MariAndre/1.0' },
+    });
+
+    if (response.ok) {
+      return {
+        ok: true,
+        status: response.status,
+        mensaje: `Servicio disponible (${response.status})`,
+      };
+    }
+
+    return {
+      ok: false,
+      status: response.status,
+      mensaje: `Error HTTP ${response.status}`,
+    };
+  } catch (err) {
+    const message = err.name === 'AbortError'
+      ? 'Tiempo de espera agotado'
+      : (err.message || 'No se pudo contactar el servicio');
+    return { ok: false, mensaje: message };
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 const DEFAULT_CONFIG = {
   whatsapp: {
     ttsAnnounceSenderOnly: false,
@@ -397,6 +467,103 @@ function createApp() {
 
       const result = await executeQuery(conexion, comando.query);
       res.json({ ...result, comando: comando.nombre });
+    } catch (err) {
+      res.status(500).json({ ok: false, mensaje: err.message });
+    }
+  });
+
+  app.get('/api/servicios-online', async (_req, res) => {
+    try {
+      res.json(await readServiciosOnline());
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/servicios-online/:id', async (req, res) => {
+    try {
+      const servicios = await readServiciosOnline();
+      const servicio = servicios.find((s) => s.id === req.params.id);
+      if (!servicio) {
+        return res.status(404).json({ error: 'Servicio no encontrado' });
+      }
+      res.json(servicio);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/servicios-online', async (req, res) => {
+    try {
+      const servicios = await readServiciosOnline();
+      const nuevo = {
+        id: generateId(servicios),
+        nombre: (req.body.nombre || 'Sin nombre').trim(),
+        url: normalizeServicioUrl(req.body.url),
+        pingIntervalMinutes: normalizePingInterval(req.body.pingIntervalMinutes),
+      };
+      servicios.push(nuevo);
+      await writeServiciosOnline(servicios);
+      res.status(201).json(nuevo);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/servicios-online/:id', async (req, res) => {
+    try {
+      const servicios = await readServiciosOnline();
+      const index = servicios.findIndex((s) => s.id === req.params.id);
+      if (index === -1) {
+        return res.status(404).json({ error: 'Servicio no encontrado' });
+      }
+
+      const current = servicios[index];
+      servicios[index] = {
+        ...current,
+        nombre: req.body.nombre !== undefined ? String(req.body.nombre).trim() : current.nombre,
+        url: req.body.url !== undefined ? normalizeServicioUrl(req.body.url) : current.url,
+        pingIntervalMinutes: req.body.pingIntervalMinutes !== undefined
+          ? normalizePingInterval(req.body.pingIntervalMinutes)
+          : current.pingIntervalMinutes,
+        id: req.params.id,
+      };
+
+      await writeServiciosOnline(servicios);
+      res.json(servicios[index]);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/servicios-online/:id', async (req, res) => {
+    try {
+      const servicios = await readServiciosOnline();
+      const filtered = servicios.filter((s) => s.id !== req.params.id);
+      if (filtered.length === servicios.length) {
+        return res.status(404).json({ error: 'Servicio no encontrado' });
+      }
+      await writeServiciosOnline(filtered);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/servicios-online/:id/ping', async (req, res) => {
+    try {
+      const servicios = await readServiciosOnline();
+      const servicio = servicios.find((s) => s.id === req.params.id);
+      if (!servicio) {
+        return res.status(404).json({ error: 'Servicio no encontrado' });
+      }
+
+      const result = await pingServicioUrl(servicio.url);
+      if (result.ok) {
+        res.json(result);
+      } else {
+        res.status(502).json(result);
+      }
     } catch (err) {
       res.status(500).json({ ok: false, mensaje: err.message });
     }

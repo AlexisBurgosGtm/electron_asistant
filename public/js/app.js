@@ -4,6 +4,7 @@ import { renderConexiones, openNewConexionModal, cleanupConexionesPage } from '.
 import { renderMantenimiento, openNewComandoModal } from './pages/mantenimiento.js';
 import { renderWhatsapp, cleanupWhatsappPage } from './pages/whatsapp.js';
 import { renderTareas } from './pages/tareas.js';
+import { renderServiciosOnline, openNewServicioModal, cleanupServiciosOnlinePage } from './pages/servicios-online.js';
 import { initWhatsAppListener } from './services/whatsapp.js';
 import { initTts } from './tts.js';
 import { showToast } from './utils.js';
@@ -11,6 +12,7 @@ import { showToast } from './utils.js';
 const routes = {
   '/': { title: 'Inicio', icon: 'fa-house', render: renderHome },
   '/conexiones': { title: 'Conexiones', icon: 'fa-plug', render: renderConexiones },
+  '/servicios-online': { title: 'Servicios Online', icon: 'fa-globe', render: renderServiciosOnline },
   '/mantenimiento': { title: 'Mantenimiento DB', icon: 'fa-screwdriver-wrench', render: renderMantenimiento },
   '/tareas': { title: 'Tareas', icon: 'fa-list-check', render: renderTareas },
   '/whatsapp': { title: 'Whatsapp', icon: 'fa-brands fa-whatsapp', render: renderWhatsapp },
@@ -50,6 +52,12 @@ function renderTopbarActions() {
         <i class="fa-solid fa-plus"></i> Nueva conexión
       </button>
     `;
+  } else if (currentRoute === '/servicios-online') {
+    extra = `
+      <button class="btn btn--primary" id="btn-add-servicio" type="button">
+        <i class="fa-solid fa-plus"></i> Nuevo servicio
+      </button>
+    `;
   } else if (currentRoute === '/mantenimiento') {
     extra = `
       <button class="btn btn--primary" id="btn-add-comando" type="button">
@@ -75,6 +83,8 @@ function renderTopbarActions() {
 
   if (currentRoute === '/conexiones') {
     document.getElementById('btn-add-conexion').addEventListener('click', openNewConexionModal);
+  } else if (currentRoute === '/servicios-online') {
+    document.getElementById('btn-add-servicio').addEventListener('click', openNewServicioModal);
   } else if (currentRoute === '/mantenimiento') {
     document.getElementById('btn-add-comando').addEventListener('click', openNewComandoModal);
   }
@@ -86,6 +96,9 @@ async function renderPage() {
   }
   if (currentRoute !== '/conexiones') {
     cleanupConexionesPage();
+  }
+  if (currentRoute !== '/servicios-online') {
+    cleanupServiciosOnlinePage();
   }
 
   const route = routes[currentRoute];
@@ -120,6 +133,12 @@ async function checkServerStatus() {
 
 window.__reloadConexiones = async () => {
   if (currentRoute === '/conexiones') {
+    await renderPage();
+  }
+};
+
+window.__reloadServiciosOnline = async () => {
+  if (currentRoute === '/servicios-online') {
     await renderPage();
   }
 };
