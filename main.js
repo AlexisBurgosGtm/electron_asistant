@@ -9,14 +9,26 @@ let tray = null;
 let isQuitting = false;
 
 function getIconPath() {
-  const ico = path.join(__dirname, 'build', 'icon.ico');
-  const png = path.join(__dirname, 'public', 'logo.png');
-  try {
-    require('fs').accessSync(ico);
-    return ico;
-  } catch {
-    return png;
+  const fs = require('fs');
+  const candidates = [
+    path.join(__dirname, 'build', 'icon.ico'),
+    path.join(__dirname, 'public', 'logo.png'),
+  ];
+
+  if (process.resourcesPath) {
+    candidates.unshift(path.join(process.resourcesPath, 'build', 'icon.ico'));
   }
+
+  for (const candidate of candidates) {
+    try {
+      fs.accessSync(candidate);
+      return candidate;
+    } catch {
+      /* siguiente */
+    }
+  }
+
+  return candidates[0];
 }
 
 function getWindowIcon() {

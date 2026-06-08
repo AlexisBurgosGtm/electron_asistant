@@ -102,7 +102,7 @@ function getServicioFormHtml(servicio = {}) {
         </div>
         <div class="form-group form-group--full">
           <label for="servicio-url">URL</label>
-          <input type="url" id="servicio-url" name="url" value="${escapeHtml(servicio.url || '')}" required placeholder="https://ejemplo.com/health">
+          <input type="text" id="servicio-url" name="url" value="${escapeHtml(servicio.url || '')}" required placeholder="ejemplo.com/health o https://...">
         </div>
         <div class="form-group form-group--full">
           <label for="servicio-interval">Ping automático</label>
@@ -127,6 +127,8 @@ function getServicioFormData(form) {
 }
 
 function bindServicioForm(form, close, onSave, afterSave) {
+  if (!form) return;
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const data = getServicioFormData(form);
@@ -144,7 +146,7 @@ function bindServicioForm(form, close, onSave, afterSave) {
       close();
       if (afterSave) await afterSave();
     } catch (err) {
-      showToast(err.message, 'error');
+      showToast(err.message || 'No se pudo guardar el servicio', 'error');
     } finally {
       if (submitBtn) submitBtn.disabled = false;
     }
@@ -164,6 +166,7 @@ function openServicioModal(servicio, reload) {
         showToast('Servicio creado', 'success');
       }
     }, reload);
+    form?.querySelector('#servicio-nombre')?.focus();
   });
 }
 

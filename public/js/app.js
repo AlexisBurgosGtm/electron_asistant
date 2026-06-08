@@ -19,16 +19,22 @@ const routes = {
 };
 
 let currentRoute = '/';
+let renderGeneration = 0;
 
 function getRoute() {
   const hash = window.location.hash.slice(1) || '/';
-  return routes[hash] ? hash : '/';
+  const path = hash.startsWith('/') ? hash : `/${hash}`;
+  return routes[path] ? path : '/';
+}
+
+function hashForRoute(path) {
+  return path === '/' ? '#/' : `#${path}`;
 }
 
 function renderNav() {
   const nav = document.getElementById('nav');
   nav.innerHTML = Object.entries(routes).map(([path, route]) => `
-    <a class="nav-link ${currentRoute === path ? 'active' : ''}" data-route="${path}">
+    <a class="nav-link ${currentRoute === path ? 'active' : ''}" data-route="${path}" href="${hashForRoute(path)}">
       <i class="fa-solid ${route.icon}"></i>
       <span>${route.title}</span>
     </a>
@@ -90,32 +96,55 @@ function renderTopbarActions() {
   }
 }
 
-async function renderPage() {
-  if (currentRoute !== '/whatsapp') {
-    cleanupWhatsappPage();
-  }
-  if (currentRoute !== '/conexiones') {
-    cleanupConexionesPage();
-  }
-  if (currentRoute !== '/servicios-online') {
-    cleanupServiciosOnlinePage();
-  }
+function cleanupOtherPages(routePath) {
+  if (routePath !== '/whatsapp') cleanupWhatsappPage();
+  if (routePath !== '/conexiones') cleanupConexionesPage();
+  if (routePath !== '/servicios-online') cleanupServiciosOnlinePage();
+}
 
-  const route = routes[currentRoute];
+async function renderPage() {
+  const generation = ++renderGeneration;
+  const routePath = currentRoute;
+  const route = routes[routePath];
+  if (!route) return;
+
+  cleanupOtherPages(routePath);
+
   document.getElementById('page-title').textContent = route.title;
-  renderTopbarActions();
 
   const content = document.getElementById('content');
   content.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
 
-  await route.render(content);
+  try {
+    await route.render(content);
+  } catch (err) {
+    if (generation !== renderGeneration) return;
+    content.innerHTML = `<div class="empty-state glass"><p>${err.message}</p></div>`;
+    return;
+  }
+
+  if (generation !== renderGeneration) return;
+
+  renderTopbarActions();
+}
+
+async function reloadCurrentPage() {
+  if (!routes[currentRoute]) return;
+  await renderPage();
 }
 
 function navigate(path) {
-  currentRoute = routes[path] ? path : '/';
-  window.location.hash = currentRoute;
-  renderNav();
-  renderPage();
+  const target = routes[path] ? path : '/';
+  currentRoute = target;
+  const nextHash = hashForRoute(target);
+
+  if (window.location.hash === nextHash) {
+    renderNav();
+    renderPage();
+    return;
+  }
+
+  window.location.hash = target === '/' ? '/' : target;
 }
 
 async function checkServerStatus() {
@@ -132,21 +161,15 @@ async function checkServerStatus() {
 }
 
 window.__reloadConexiones = async () => {
-  if (currentRoute === '/conexiones') {
-    await renderPage();
-  }
+  if (currentRoute === '/conexiones') await reloadCurrentPage();
 };
 
 window.__reloadServiciosOnline = async () => {
-  if (currentRoute === '/servicios-online') {
-    await renderPage();
-  }
+  if (currentRoute === '/servicios-online') await reloadCurrentPage();
 };
 
 window.__reloadMantenimiento = async () => {
-  if (currentRoute === '/mantenimiento') {
-    await renderPage();
-  }
+  if (currentRoute === '/mantenimiento') await reloadCurrentPage();
 };
 
 window.addEventListener('hashchange', () => {
@@ -155,8 +178,9 @@ window.addEventListener('hashchange', () => {
   renderPage();
 });
 
+currentRoute = getRoute();
 renderNav();
-navigate(getRoute());
+renderPage();
 checkServerStatus();
 setInterval(checkServerStatus, 30000);
 
