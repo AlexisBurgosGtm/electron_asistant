@@ -80,6 +80,7 @@ async function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
+    show: false,
     backgroundColor: '#0a1628',
     icon: getWindowIcon(),
     webPreferences: {
@@ -88,6 +89,11 @@ async function createWindow() {
     },
     autoHideMenuBar: true,
     title: 'MariAndre',
+  });
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.maximize();
+    mainWindow.show();
   });
 
   mainWindow.loadURL(`http://localhost:${PORT}`);

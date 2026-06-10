@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { showToast, confirmDialog } from '../utils.js';
+import { showToast, confirmDialog, showTableLoader } from '../utils.js';
 import { speakQueued } from '../tts.js';
 import {
   isWhatsAppTtsEnabled,
@@ -12,12 +12,17 @@ import {
   refreshWhatsAppListener,
   getContactDisplayName,
   formatMessageForSpeech,
+  getWhatsAppOmitConfig,
+  setWhatsAppOmittedWords,
+  setWhatsAppOmittedPhones,
 } from '../services/whatsapp.js';
 
 let pollTimer = null;
 let unsubscribeTts = null;
 let unsubscribeSenderOnly = null;
+let omitSaveTimer = null;
 let cachedMessages = [];
+let messagesLoading = false;
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -75,13 +80,36 @@ function bindMessageEvents(container) {
   container.querySelectorAll('.btn-speak-msg').forEach((btn) => {
     btn.addEventListener('click', () => {
       const msg = cachedMessages.find((m) => m.id === btn.dataset.id);
-      if (msg) speakQueued(formatMessageForSpeech(msg));
+      if (!msg) return;
+      const speech = formatMessageForSpeech(msg);
+      if (speech) speakQueued(speech);
+      else showToast('Mensaje omitido por configuración', 'info');
     });
   });
 }
 
+function updateQrOverlay(container, state, messages) {
+  const overlay = container.querySelector('#wa-qr-overlay');
+  if (!overlay) return;
+
+  const showQr = state.status === 'qr' && state.qr && !messagesLoading && !messages.length;
+
+  if (showQr) {
+    overlay.innerHTML = `
+      <div class="wa-qr-overlay__content glass">
+        <h3><i class="fa-solid fa-qrcode"></i> Escanea con WhatsApp</h3>
+        <p>Abre WhatsApp en tu teléfono → Dispositivos vinculados → Vincular dispositivo</p>
+        <img src="${state.qr}" alt="Código QR WhatsApp" class="wa-qr__image wa-qr__image--large">
+      </div>
+    `;
+    overlay.hidden = false;
+  } else {
+    overlay.hidden = true;
+    overlay.innerHTML = '';
+  }
+}
+
 function updateView(container, state, messages) {
-  const qrPanel = container.querySelector('#wa-qr-panel');
   const statusEl = container.querySelector('#wa-connection-status');
   const userEl = container.querySelector('#wa-user-info');
   const messagesEl = container.querySelector('#wa-messages');
@@ -105,21 +133,7 @@ function updateView(container, state, messages) {
     }
   }
 
-  if (qrPanel) {
-    if (state.status === 'qr' && state.qr) {
-      qrPanel.innerHTML = `
-        <div class="wa-qr glass">
-          <h3><i class="fa-solid fa-qrcode"></i> Escanea con WhatsApp</h3>
-          <p>Abre WhatsApp en tu teléfono → Dispositivos vinculados → Vincular dispositivo</p>
-          <img src="${state.qr}" alt="Código QR WhatsApp" class="wa-qr__image">
-        </div>
-      `;
-      qrPanel.hidden = false;
-    } else {
-      qrPanel.hidden = true;
-      qrPanel.innerHTML = '';
-    }
-  }
+  updateQrOverlay(container, state, messages);
 
   if (messagesEl) {
     messagesEl.innerHTML = renderMessages(messages);
@@ -139,15 +153,29 @@ function updateView(container, state, messages) {
   }
 }
 
-async function refreshState(container) {
+async function refreshState(container, { showMessagesLoader = false } = {}) {
+  const messagesEl = container.querySelector('#wa-messages');
+  messagesLoading = showMessagesLoader;
+
+  if (showMessagesLoader) {
+    const overlay = container.querySelector('#wa-qr-overlay');
+    if (overlay) {
+      overlay.hidden = true;
+      overlay.innerHTML = '';
+    }
+    if (messagesEl) showTableLoader(messagesEl, 'Cargando mensajes...');
+  }
+
   try {
     const [state, messages] = await Promise.all([
       api.getWhatsAppStatus(),
       api.getWhatsAppMessages(),
     ]);
     cachedMessages = messages;
+    messagesLoading = false;
     updateView(container, state, messages);
   } catch (err) {
+    messagesLoading = false;
     showToast(err.message, 'error');
   }
 }
@@ -161,10 +189,16 @@ function handleWhatsAppEvent(container, data) {
   }
 }
 
+function scheduleOmitSave(fn) {
+  clearTimeout(omitSaveTimer);
+  omitSaveTimer = setTimeout(fn, 500);
+}
+
 export async function renderWhatsapp(container) {
   await loadWhatsAppConfig();
   const ttsOn = isWhatsAppTtsEnabled();
   const senderOnly = isWhatsAppTtsSenderOnly();
+  const omitConfig = getWhatsAppOmitConfig();
 
   container.innerHTML = `
     <div class="wa-layout">
@@ -194,7 +228,18 @@ export async function renderWhatsapp(container) {
           Solo anunciar remitente (sin leer el mensaje)
         </label>
 
-        <div id="wa-qr-panel" hidden></div>
+        <div class="wa-omit-fields">
+          <label class="form-group form-group--full">
+            <span>Palabras omitidas</span>
+            <input type="text" id="wa-omit-words" value="${escapeHtml(omitConfig.omittedWords)}" placeholder="promo, oferta, descuento">
+            <small>Separadas por coma. No se leerán al anunciar mensajes.</small>
+          </label>
+          <label class="form-group form-group--full">
+            <span>Teléfonos omitidos</span>
+            <input type="text" id="wa-omit-phones" value="${escapeHtml(omitConfig.omittedPhones)}" placeholder="54911, 57300">
+            <small>Separados por coma. No se leerán mensajes de esos números.</small>
+          </label>
+        </div>
       </div>
 
       <div class="wa-messages-panel glass">
@@ -204,7 +249,10 @@ export async function renderWhatsapp(container) {
             <i class="fa-solid fa-rotate"></i> Refrescar
           </button>
         </div>
-        <div class="wa-messages-list" id="wa-messages"></div>
+        <div class="wa-messages-body">
+          <div id="wa-qr-overlay" class="wa-qr-overlay" hidden></div>
+          <div class="wa-messages-list" id="wa-messages"></div>
+        </div>
       </div>
     </div>
   `;
@@ -234,12 +282,23 @@ export async function renderWhatsapp(container) {
     senderOnlyToggle.checked = enabled;
   });
 
+  const omitWordsInput = container.querySelector('#wa-omit-words');
+  const omitPhonesInput = container.querySelector('#wa-omit-phones');
+
+  omitWordsInput?.addEventListener('input', () => {
+    scheduleOmitSave(() => setWhatsAppOmittedWords(omitWordsInput.value));
+  });
+
+  omitPhonesInput?.addEventListener('input', () => {
+    scheduleOmitSave(() => setWhatsAppOmittedPhones(omitPhonesInput.value));
+  });
+
   container.querySelector('#wa-refresh-btn').addEventListener('click', async () => {
     const btn = container.querySelector('#wa-refresh-btn');
     btn.disabled = true;
     try {
       await refreshWhatsAppListener();
-      await refreshState(container);
+      await refreshState(container, { showMessagesLoader: true });
       showToast('WhatsApp refrescado', 'success');
     } catch (err) {
       showToast(err.message, 'error');
@@ -281,12 +340,16 @@ export async function renderWhatsapp(container) {
 
   window.__onWhatsAppEvent = (data) => handleWhatsAppEvent(container, data);
 
-  await refreshState(container);
+  await refreshState(container, { showMessagesLoader: true });
 
   pollTimer = setInterval(() => refreshState(container), 3000);
 }
 
 export function cleanupWhatsappPage() {
+  if (omitSaveTimer) {
+    clearTimeout(omitSaveTimer);
+    omitSaveTimer = null;
+  }
   if (pollTimer) {
     clearInterval(pollTimer);
     pollTimer = null;

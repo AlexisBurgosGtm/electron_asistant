@@ -1,4 +1,9 @@
+import { showLoader } from '../utils.js';
+import { getStoredTheme, renderThemeSelector, bindThemeSelector } from '../themes.js';
+
 export async function renderHome(container) {
+  showLoader(container, 'Cargando resumen...');
+
   let conexiones = [];
   try {
     const { api } = await import('../api.js');
@@ -29,6 +34,8 @@ export async function renderHome(container) {
       </div>
     </div>
 
+    ${renderThemeSelector(getStoredTheme())}
+
     <div class="voice-hints glass">
       <h3><i class="fa-solid fa-volume-high"></i> Texto a voz</h3>
       <ul>
@@ -38,4 +45,6 @@ export async function renderHome(container) {
       </ul>
     </div>
   `;
+
+  bindThemeSelector(container);
 }

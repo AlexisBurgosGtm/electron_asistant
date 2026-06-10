@@ -5,6 +5,7 @@ const sql = require('mssql');
 const mysql = require('mysql2/promise');
 const whatsapp = require('./whatsapp');
 const googleTasks = require('./googleTasks');
+const hostingDb = require('./hostingDb');
 const appPaths = require('./appPaths');
 
 const PORT = 9006;
@@ -118,9 +119,14 @@ async function pingServicioUrl(url) {
 const DEFAULT_CONFIG = {
   whatsapp: {
     ttsAnnounceSenderOnly: false,
+    omittedWords: '',
+    omittedPhones: '',
   },
   conexiones: {
     autoPing: true,
+  },
+  hosting: {
+    principalConexionId: null,
   },
 };
 
@@ -130,7 +136,24 @@ function mergeConfig(data) {
     ...data,
     whatsapp: { ...DEFAULT_CONFIG.whatsapp, ...(data?.whatsapp || {}) },
     conexiones: { ...DEFAULT_CONFIG.conexiones, ...(data?.conexiones || {}) },
+    hosting: { ...DEFAULT_CONFIG.hosting, ...(data?.hosting || {}) },
   };
+}
+
+async function resolveHostingConexion() {
+  const config = await readConfig();
+  const conexionId = config.hosting?.principalConexionId;
+  if (!conexionId) {
+    throw new Error('Configura el Hosting principal en Configuraciones');
+  }
+
+  const conexiones = await readConexiones();
+  const conexion = conexiones.find((c) => String(c.id) === String(conexionId));
+  if (!conexion) {
+    throw new Error('La conexión de Hosting principal no existe');
+  }
+
+  return { conexion, config };
 }
 
 async function readConfig() {
@@ -585,11 +608,209 @@ function createApp() {
         ...req.body,
         whatsapp: { ...current.whatsapp, ...(req.body?.whatsapp || {}) },
         conexiones: { ...current.conexiones, ...(req.body?.conexiones || {}) },
+        hosting: { ...current.hosting, ...(req.body?.hosting || {}) },
       });
       await writeConfig(updated);
       res.json(updated);
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/hosting/status', async (_req, res) => {
+    try {
+      const config = await readConfig();
+      const conexiones = await readConexiones();
+      const principalId = config.hosting?.principalConexionId;
+      const conexion = conexiones.find((c) => String(c.id) === String(principalId));
+      res.json({
+        principalConexionId: principalId || null,
+        conexion: conexion ? { id: conexion.id, nombre: conexion.nombre, tipo: conexion.tipo, host: conexion.host } : null,
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/soporte/anydesk', async (_req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const rows = await hostingDb.listSoporteAnydesk(conexion);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/soporte/tokens', async (_req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const rows = await hostingDb.listTokens(conexion);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/soporte/anydesk', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.createSoporteAnydesk(conexion, req.body);
+      res.status(201).json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/soporte/anydesk/:id', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.updateSoporteAnydesk(conexion, parseInt(req.params.id, 10), req.body);
+      res.json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/soporte/anydesk/:id', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      await hostingDb.deleteSoporteAnydesk(conexion, parseInt(req.params.id, 10));
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/updater/queries', async (_req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const rows = await hostingDb.listUpdateQueries(conexion);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/updater/queries', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.createUpdateQuery(conexion, req.body);
+      res.status(201).json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/updater/queries/:id', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.updateUpdateQuery(conexion, parseInt(req.params.id, 10), req.body);
+      res.json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/updater/queries/:id', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      await hostingDb.deleteUpdateQuery(conexion, parseInt(req.params.id, 10));
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/tokens/admin', async (_req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const rows = await hostingDb.listTokensAdmin(conexion);
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/tokens/admin', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.createTokenAdmin(conexion, req.body);
+      res.status(201).json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/tokens/admin/:token', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.updateTokenAdmin(conexion, decodeURIComponent(req.params.token), req.body);
+      res.json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.patch('/api/tokens/admin/:token/activo', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.toggleTokenActivo(conexion, decodeURIComponent(req.params.token));
+      res.json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/tokens/admin/:token', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      await hostingDb.deleteTokenAdmin(conexion, decodeURIComponent(req.params.token));
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/tokens/community', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const token = (req.query.token || '').trim();
+      if (!token) return res.status(400).json({ error: 'TOKEN requerido' });
+      const rows = await hostingDb.listCommunityEmpresas(conexion, token, req.query.search || '');
+      res.json(rows);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/tokens/community', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.createCommunityEmpresa(conexion, req.body);
+      res.status(201).json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/tokens/community/:id', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      const row = await hostingDb.updateCommunityEmpresa(conexion, parseInt(req.params.id, 10), req.body);
+      res.json(row);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/tokens/community/:id', async (req, res) => {
+    try {
+      const { conexion } = await resolveHostingConexion();
+      await hostingDb.deleteCommunityEmpresa(conexion, parseInt(req.params.id, 10));
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
     }
   });
 

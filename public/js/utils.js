@@ -33,6 +33,24 @@ export async function confirmDialog({
   return result.isConfirmed;
 }
 
+export function renderLoader(message = 'Cargando...', { compact = false } = {}) {
+  const className = compact ? 'table-loader' : 'page-loader';
+  return `
+    <div class="${className}">
+      <i class="fa-solid fa-spinner fa-spin fa-2x"></i>
+      <span>${message}</span>
+    </div>
+  `;
+}
+
+export function showLoader(container, message = 'Cargando...') {
+  if (container) container.innerHTML = renderLoader(message);
+}
+
+export function showTableLoader(element, message = 'Cargando...') {
+  if (element) element.innerHTML = renderLoader(message, { compact: true });
+}
+
 export function showToast(message, type = 'info') {
   const container = document.getElementById('toast-container');
   const icons = {

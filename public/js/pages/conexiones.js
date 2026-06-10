@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { showToast, confirmDialog, openModal, getTipoBadge, getFormHtml, bindFormEvents } from '../utils.js';
+import { showToast, confirmDialog, openModal, getTipoBadge, getFormHtml, bindFormEvents, showLoader, showTableLoader } from '../utils.js';
 import { runConnectionTest } from '../services/connections.js';
 
 const PING_INTERVAL_MS = 5 * 60 * 1000;
@@ -102,8 +102,8 @@ function renderCard(conexion) {
         <button class="btn btn--ghost btn--sm btn-test" data-id="${conexion.id}" data-nombre="${escapeHtml(conexion.nombre)}">
           <i class="fa-solid fa-plug"></i> Probar
         </button>
-        <button class="btn btn--ghost btn--sm btn-edit" data-id="${conexion.id}">
-          <i class="fa-solid fa-pen"></i> Editar
+        <button class="btn btn--ghost btn--sm btn-edit" data-id="${conexion.id}" title="Editar">
+          <i class="fa-solid fa-pen"></i>
         </button>
         <button class="btn btn--danger btn--sm btn-delete" data-id="${conexion.id}">
           <i class="fa-solid fa-trash"></i>
@@ -138,7 +138,8 @@ function openQueryModal(conexion) {
       }
 
       execBtn.disabled = true;
-      resultEl.hidden = true;
+      resultEl.hidden = false;
+      showTableLoader(resultEl, 'Ejecutando consulta...');
 
       try {
         const result = await api.executeConexionQuery(conexion.id, query);
@@ -267,6 +268,8 @@ export function setupConexionesActions(onNew) {
 }
 
 export async function renderConexiones(container) {
+  showLoader(container, 'Cargando conexiones...');
+
   let conexiones = [];
   try {
     conexiones = await api.getConexiones();

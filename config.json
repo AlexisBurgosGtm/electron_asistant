@@ -4,5 +4,8 @@
   },
   "conexiones": {
     "autoPing": true
+  },
+  "hosting": {
+    "principalConexionId": "6"
   }
 }

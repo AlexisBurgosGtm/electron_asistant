@@ -6,8 +6,13 @@ let eventSource = null;
 let pollTimer = null;
 let ttsEnabled = localStorage.getItem(TTS_KEY) !== 'false';
 let ttsAnnounceSenderOnly = false;
+let omittedWords = [];
+let omittedPhones = [];
+let omittedWordsRaw = '';
+let omittedPhonesRaw = '';
 const listeners = new Set();
 const senderOnlyListeners = new Set();
+const omitListeners = new Set();
 const knownMessageIds = new Set();
 const spokenMessageIds = new Set();
 const pendingTts = new Map();
@@ -47,10 +52,91 @@ export function onWhatsAppTtsSenderOnlyChange(fn) {
   return () => senderOnlyListeners.delete(fn);
 }
 
+function parseCsvList(value) {
+  return String(value || '').split(',').map((s) => s.trim()).filter(Boolean);
+}
+
+function normalizePhone(value) {
+  return String(value || '').replace(/\D/g, '');
+}
+
+function applyOmitConfig(config) {
+  omittedWordsRaw = String(config?.whatsapp?.omittedWords || '');
+  omittedPhonesRaw = String(config?.whatsapp?.omittedPhones || '');
+  omittedWords = parseCsvList(omittedWordsRaw);
+  omittedPhones = parseCsvList(omittedPhonesRaw).map(normalizePhone).filter(Boolean);
+  omitListeners.forEach((fn) => fn({ omittedWords, omittedPhones }));
+}
+
+export function getWhatsAppOmitConfig() {
+  return {
+    omittedWords: omittedWordsRaw,
+    omittedPhones: omittedPhonesRaw,
+  };
+}
+
+export async function setWhatsAppOmittedWords(value) {
+  const text = String(value ?? '');
+  omittedWordsRaw = text;
+  omittedWords = parseCsvList(text);
+  try {
+    await api.updateConfig({ whatsapp: { omittedWords: text } });
+  } catch {
+    /* mantener valor local */
+  }
+  omitListeners.forEach((fn) => fn({ omittedWords, omittedPhones }));
+}
+
+export async function setWhatsAppOmittedPhones(value) {
+  const text = String(value ?? '');
+  omittedPhonesRaw = text;
+  omittedPhones = parseCsvList(text).map(normalizePhone).filter(Boolean);
+  try {
+    await api.updateConfig({ whatsapp: { omittedPhones: text } });
+  } catch {
+    /* mantener valor local */
+  }
+  omitListeners.forEach((fn) => fn({ omittedWords, omittedPhones }));
+}
+
+export function onWhatsAppOmitChange(fn) {
+  omitListeners.add(fn);
+  return () => omitListeners.delete(fn);
+}
+
+export function isMessagePhoneOmitted(message) {
+  if (!omittedPhones.length || !message) return false;
+
+  const candidates = [
+    message.from,
+    message.chatId,
+    message.author,
+    getContactDisplayName(message),
+  ].map(normalizePhone).filter(Boolean);
+
+  return omittedPhones.some((omitted) => candidates.some((phone) => {
+    if (!phone || !omitted) return false;
+    return phone === omitted || phone.endsWith(omitted) || omitted.endsWith(phone) || phone.includes(omitted);
+  }));
+}
+
+export function filterOmittedWords(text) {
+  if (!text || !omittedWords.length) return text || '';
+
+  let result = String(text);
+  omittedWords.forEach((word) => {
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(escaped, 'gi'), '');
+  });
+
+  return result.replace(/\s{2,}/g, ' ').trim();
+}
+
 export async function loadWhatsAppConfig() {
   try {
     const config = await api.getConfig();
     ttsAnnounceSenderOnly = Boolean(config?.whatsapp?.ttsAnnounceSenderOnly);
+    applyOmitConfig(config);
     senderOnlyListeners.forEach((fn) => fn(ttsAnnounceSenderOnly));
   } catch {
     /* usar valor por defecto */
@@ -80,9 +166,12 @@ function looksLikePhone(value) {
 }
 
 export function formatMessageForSpeech(message) {
+  if (isMessagePhoneOmitted(message)) return null;
+
   const from = getContactDisplayName(message);
   if (ttsAnnounceSenderOnly) return `Nuevo mensaje de ${from}`;
-  const body = message.body || 'mensaje sin texto';
+
+  const body = filterOmittedWords(message.body || '') || 'mensaje sin texto';
   return `Mensaje de ${from}. ${body}`;
 }
 
@@ -92,11 +181,15 @@ function dispatchEvent(data) {
 
 function enqueueTts(message) {
   if (!ttsEnabled) return;
-  if (!ttsAnnounceSenderOnly && !(message.body || '').trim()) return;
+  if (isMessagePhoneOmitted(message)) return;
+  if (!ttsAnnounceSenderOnly && !filterOmittedWords(message.body || '').trim()) return;
   if (spokenMessageIds.has(message.id)) return;
 
+  const speech = formatMessageForSpeech(message);
+  if (!speech) return;
+
   spokenMessageIds.add(message.id);
-  speakQueued(formatMessageForSpeech(message));
+  speakQueued(speech);
 }
 
 function scheduleTts(message) {

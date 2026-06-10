@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { showToast, confirmDialog, openModal } from '../utils.js';
+import { showToast, confirmDialog, openModal, showLoader } from '../utils.js';
 
 const pingTimers = new Map();
 
@@ -237,6 +237,8 @@ export function openNewServicioModal() {
 }
 
 export async function renderServiciosOnline(container) {
+  showLoader(container, 'Cargando servicios...');
+
   let servicios = [];
 
   try {

@@ -185,7 +185,7 @@ async function ensureDataFiles() {
   await copyIfMissing(
     path.join(getBundleDir(), 'config.json'),
     configPath(),
-    JSON.stringify({ whatsapp: { ttsAnnounceSenderOnly: false }, conexiones: { autoPing: true } }, null, 2)
+    JSON.stringify({ whatsapp: { ttsAnnounceSenderOnly: false }, conexiones: { autoPing: true }, hosting: { principalConexionId: null } }, null, 2)
   );
 
   await copyIfMissing(

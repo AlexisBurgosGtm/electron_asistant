@@ -56,5 +56,18 @@
     "usuario": "a6478c_proxy",
     "password": "razors1805",
     "baseDatos": "db_a6478c_proxy"
+  },
+  {
+    "id": "6",
+    "nombre": "HOST SYNC",
+    "tipo": "mssql",
+    "host": "sql5052.site4now.net",
+    "usuario": "db_a6478c_onnebsync_admin",
+    "password": "razors1805",
+    "baseDatos": "db_a6478c_onnebsync",
+    "opciones": {
+      "encrypt": false,
+      "trustServerCertificate": true
+    }
   }
 ]

@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { showToast, confirmDialog, openModal } from '../utils.js';
+import { showToast, confirmDialog, openModal, showLoader } from '../utils.js';
 import { runMantenimientoComando } from '../services/connections.js';
 
 function escapeHtml(text) {
@@ -156,6 +156,8 @@ export async function openNewComandoModal() {
 }
 
 export async function renderMantenimiento(container) {
+  showLoader(container, 'Cargando comandos...');
+
   let comandos = [];
   let conexiones = [];
 

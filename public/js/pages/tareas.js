@@ -1,5 +1,5 @@
 import { api } from '../api.js';
-import { showToast } from '../utils.js';
+import { showToast, showLoader, showTableLoader } from '../utils.js';
 import { speak } from '../tts.js';
 
 function escapeHtml(text) {
@@ -125,6 +125,8 @@ function bindTaskActions(container, onComplete) {
 }
 
 export async function renderTareas(container) {
+  showLoader(container, 'Cargando tareas...');
+
   let status;
   try {
     status = await api.getGoogleStatus();
@@ -181,7 +183,7 @@ export async function renderTareas(container) {
     return;
   }
 
-  container.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
+  showLoader(container, 'Cargando listas de tareas...');
 
   try {
     const grouped = await api.getGoogleTasks();
@@ -265,14 +267,26 @@ export async function renderTareas(container) {
     }
 
     async function refreshTasks() {
-      const updated = await api.getGoogleTasks();
-      updated.forEach((list) => {
-        listMap[list.id] = list;
-      });
-      grouped.splice(0, grouped.length, ...updated);
-      document.getElementById('tasks-list-tabs').innerHTML = renderTaskLists(grouped, currentListId);
-      document.getElementById('tasks-grid').innerHTML = renderTasks(getCurrentList(), currentListId);
-      bindTaskActions(document.getElementById('tasks-grid'), refreshTasks);
+      const tasksGrid = document.getElementById('tasks-grid');
+      const listTabs = document.getElementById('tasks-list-tabs');
+      if (tasksGrid) showTableLoader(tasksGrid, 'Actualizando tareas...');
+      if (listTabs) showTableLoader(listTabs, 'Actualizando listas...');
+
+      try {
+        const updated = await api.getGoogleTasks();
+        updated.forEach((list) => {
+          listMap[list.id] = list;
+        });
+        grouped.splice(0, grouped.length, ...updated);
+        listTabs.innerHTML = renderTaskLists(grouped, currentListId);
+        tasksGrid.innerHTML = renderTasks(getCurrentList(), currentListId);
+        bindTaskActions(tasksGrid, refreshTasks);
+      } catch (err) {
+        showToast(err.message, 'error');
+        tasksGrid.innerHTML = renderTasks(getCurrentList(), currentListId);
+        listTabs.innerHTML = renderTaskLists(grouped, currentListId);
+        bindTaskActions(tasksGrid, refreshTasks);
+      }
     }
 
     renderLayout();

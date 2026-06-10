@@ -5,17 +5,26 @@ import { renderMantenimiento, openNewComandoModal } from './pages/mantenimiento.
 import { renderWhatsapp, cleanupWhatsappPage } from './pages/whatsapp.js';
 import { renderTareas } from './pages/tareas.js';
 import { renderServiciosOnline, openNewServicioModal, cleanupServiciosOnlinePage } from './pages/servicios-online.js';
+import { renderSoporteClientes, openNewSoporteModal } from './pages/soporte-clientes.js';
+import { renderUpdater, openNewUpdaterModal } from './pages/updater.js';
+import { renderTokens, openNewTokenModal, openNewCommunityModal } from './pages/tokens.js';
+import { renderConfiguraciones } from './pages/configuraciones.js';
 import { initWhatsAppListener } from './services/whatsapp.js';
 import { initTts } from './tts.js';
-import { showToast } from './utils.js';
+import { showToast, renderLoader } from './utils.js';
+import { initTheme } from './themes.js';
 
 const routes = {
   '/': { title: 'Inicio', icon: 'fa-house', render: renderHome },
   '/conexiones': { title: 'Conexiones', icon: 'fa-plug', render: renderConexiones },
   '/servicios-online': { title: 'Servicios Online', icon: 'fa-globe', render: renderServiciosOnline },
+  '/soporte-clientes': { title: 'Soporte Clientes', icon: 'fa-headset', render: renderSoporteClientes },
+  '/updater': { title: 'Updater', icon: 'fa-database', render: renderUpdater },
+  '/tokens': { title: 'Tokens', icon: 'fa-key', render: renderTokens },
   '/mantenimiento': { title: 'Mantenimiento DB', icon: 'fa-screwdriver-wrench', render: renderMantenimiento },
   '/tareas': { title: 'Tareas', icon: 'fa-list-check', render: renderTareas },
   '/whatsapp': { title: 'Whatsapp', icon: 'fa-brands fa-whatsapp', render: renderWhatsapp },
+  '/configuraciones': { title: 'Configuraciones', icon: 'fa-gear', render: renderConfiguraciones },
 };
 
 let currentRoute = '/';
@@ -53,44 +62,35 @@ function renderTopbarActions(routePath = currentRoute) {
   let extra = '';
 
   if (routePath === '/conexiones') {
-    extra = `
-      <button class="btn btn--primary" id="btn-add-conexion">
-        <i class="fa-solid fa-plus"></i> Nueva conexión
-      </button>
-    `;
+    extra = `<button class="btn btn--primary" id="btn-add-conexion"><i class="fa-solid fa-plus"></i> Nueva conexión</button>`;
   } else if (routePath === '/servicios-online') {
+    extra = `<button class="btn btn--primary" id="btn-add-servicio" type="button"><i class="fa-solid fa-plus"></i> Nuevo servicio</button>`;
+  } else if (routePath === '/soporte-clientes') {
+    extra = `<button class="btn btn--primary" id="btn-add-soporte" type="button"><i class="fa-solid fa-plus"></i> Nuevo registro</button>`;
+  } else if (routePath === '/updater') {
+    extra = `<button class="btn btn--primary" id="btn-add-updater" type="button"><i class="fa-solid fa-plus"></i> Nueva query</button>`;
+  } else if (routePath === '/tokens') {
     extra = `
-      <button class="btn btn--primary" id="btn-add-servicio" type="button">
-        <i class="fa-solid fa-plus"></i> Nuevo servicio
-      </button>
+      <button class="btn btn--primary" id="btn-add-token" type="button"><i class="fa-solid fa-plus"></i> Nuevo token</button>
+      <button class="btn btn--ghost" id="btn-add-community-top" type="button"><i class="fa-solid fa-building"></i> Nueva empresa</button>
     `;
   } else if (routePath === '/mantenimiento') {
-    extra = `
-      <button class="btn btn--primary" id="btn-add-comando" type="button">
-        <i class="fa-solid fa-plus"></i> Nuevo comando
-      </button>
-    `;
+    extra = `<button class="btn btn--primary" id="btn-add-comando" type="button"><i class="fa-solid fa-plus"></i> Nuevo comando</button>`;
   }
 
-  actions.innerHTML = `
-    <button class="btn btn--ghost" id="btn-hide-tray" type="button" title="Minimizar a bandeja del sistema">
-      <i class="fa-solid fa-down-left-and-up-right-to-center"></i> A bandeja
-    </button>
-    ${extra}
-  `;
-
-  document.getElementById('btn-hide-tray').addEventListener('click', async () => {
-    try {
-      await api.hideToTray();
-    } catch (err) {
-      showToast(err.message, 'error');
-    }
-  });
+  actions.innerHTML = extra;
 
   if (routePath === '/conexiones') {
     document.getElementById('btn-add-conexion')?.addEventListener('click', openNewConexionModal);
   } else if (routePath === '/servicios-online') {
     document.getElementById('btn-add-servicio')?.addEventListener('click', openNewServicioModal);
+  } else if (routePath === '/soporte-clientes') {
+    document.getElementById('btn-add-soporte')?.addEventListener('click', openNewSoporteModal);
+  } else if (routePath === '/updater') {
+    document.getElementById('btn-add-updater')?.addEventListener('click', openNewUpdaterModal);
+  } else if (routePath === '/tokens') {
+    document.getElementById('btn-add-token')?.addEventListener('click', openNewTokenModal);
+    document.getElementById('btn-add-community-top')?.addEventListener('click', openNewCommunityModal);
   } else if (routePath === '/mantenimiento') {
     document.getElementById('btn-add-comando')?.addEventListener('click', openNewComandoModal);
   }
@@ -114,7 +114,7 @@ async function renderPage() {
   renderTopbarActions(routePath);
 
   const content = document.getElementById('content');
-  content.innerHTML = '<div style="text-align:center;padding:3rem;color:var(--text-muted)"><i class="fa-solid fa-spinner fa-spin fa-2x"></i></div>';
+  content.innerHTML = renderLoader('Cargando sección...');
 
   try {
     await route.render(content);
@@ -130,6 +130,10 @@ async function renderPage() {
 
 async function reloadCurrentPage() {
   if (!routes[currentRoute]) return;
+  if (currentRoute === '/tokens' && window.__reloadTokensPage) {
+    await window.__reloadTokensPage();
+    return;
+  }
   await renderPage();
 }
 
@@ -172,10 +176,32 @@ window.__reloadMantenimiento = async () => {
   if (currentRoute === '/mantenimiento') await reloadCurrentPage();
 };
 
+window.__reloadSoporte = async () => {
+  if (currentRoute === '/soporte-clientes') await reloadCurrentPage();
+};
+
+window.__reloadUpdater = async () => {
+  if (currentRoute === '/updater') await reloadCurrentPage();
+};
+
+window.__reloadTokens = async () => {
+  if (currentRoute === '/tokens') await reloadCurrentPage();
+};
+
 window.addEventListener('hashchange', () => {
   currentRoute = getRoute();
   renderNav();
   renderPage();
+});
+
+initTheme();
+
+document.getElementById('btn-hide-tray')?.addEventListener('click', async () => {
+  try {
+    await api.hideToTray();
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 });
 
 currentRoute = getRoute();
