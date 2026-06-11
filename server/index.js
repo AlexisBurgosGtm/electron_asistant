@@ -63,6 +63,28 @@ async function writeServiciosOnline(servicios) {
   await fs.writeFile(appPaths.serviciosOnlinePath(), JSON.stringify(servicios, null, 2), 'utf-8');
 }
 
+async function getServiciosOnlineFromHosting() {
+  const { conexion } = await resolveHostingConexion();
+  let servicios = await hostingDb.listServiciosOnline(conexion);
+
+  if (!servicios.length) {
+    const legacy = await readServiciosOnline();
+    if (legacy.length) {
+      for (const item of legacy) {
+        await hostingDb.createServicioOnline(conexion, {
+          nombre: item.nombre,
+          url: normalizeServicioUrl(item.url),
+          pingIntervalMinutes: normalizePingInterval(item.pingIntervalMinutes),
+        });
+      }
+      servicios = await hostingDb.listServiciosOnline(conexion);
+      await writeServiciosOnline([]);
+    }
+  }
+
+  return servicios;
+}
+
 function normalizeServicioUrl(url) {
   const trimmed = (url || '').trim();
   if (!trimmed) throw new Error('La URL no puede estar vacía');
@@ -497,7 +519,7 @@ function createApp() {
 
   app.get('/api/servicios-online', async (_req, res) => {
     try {
-      res.json(await readServiciosOnline());
+      res.json(await getServiciosOnlineFromHosting());
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -505,8 +527,8 @@ function createApp() {
 
   app.get('/api/servicios-online/:id', async (req, res) => {
     try {
-      const servicios = await readServiciosOnline();
-      const servicio = servicios.find((s) => s.id === req.params.id);
+      const { conexion } = await resolveHostingConexion();
+      const servicio = await hostingDb.getServicioOnline(conexion, parseInt(req.params.id, 10));
       if (!servicio) {
         return res.status(404).json({ error: 'Servicio no encontrado' });
       }
@@ -518,15 +540,12 @@ function createApp() {
 
   app.post('/api/servicios-online', async (req, res) => {
     try {
-      const servicios = await readServiciosOnline();
-      const nuevo = {
-        id: generateId(servicios),
+      const { conexion } = await resolveHostingConexion();
+      const nuevo = await hostingDb.createServicioOnline(conexion, {
         nombre: (req.body.nombre || 'Sin nombre').trim(),
         url: normalizeServicioUrl(req.body.url),
         pingIntervalMinutes: normalizePingInterval(req.body.pingIntervalMinutes),
-      };
-      servicios.push(nuevo);
-      await writeServiciosOnline(servicios);
+      });
       res.status(201).json(nuevo);
     } catch (err) {
       res.status(400).json({ error: err.message });
@@ -535,48 +554,34 @@ function createApp() {
 
   app.put('/api/servicios-online/:id', async (req, res) => {
     try {
-      const servicios = await readServiciosOnline();
-      const index = servicios.findIndex((s) => s.id === req.params.id);
-      if (index === -1) {
-        return res.status(404).json({ error: 'Servicio no encontrado' });
-      }
-
-      const current = servicios[index];
-      servicios[index] = {
-        ...current,
-        nombre: req.body.nombre !== undefined ? String(req.body.nombre).trim() : current.nombre,
-        url: req.body.url !== undefined ? normalizeServicioUrl(req.body.url) : current.url,
-        pingIntervalMinutes: req.body.pingIntervalMinutes !== undefined
-          ? normalizePingInterval(req.body.pingIntervalMinutes)
-          : current.pingIntervalMinutes,
-        id: req.params.id,
-      };
-
-      await writeServiciosOnline(servicios);
-      res.json(servicios[index]);
+      const { conexion } = await resolveHostingConexion();
+      const updated = await hostingDb.updateServicioOnline(conexion, parseInt(req.params.id, 10), {
+        nombre: req.body.nombre,
+        url: req.body.url !== undefined ? normalizeServicioUrl(req.body.url) : undefined,
+        pingIntervalMinutes: req.body.pingIntervalMinutes,
+      });
+      res.json(updated);
     } catch (err) {
-      res.status(400).json({ error: err.message });
+      const status = err.message === 'Servicio no encontrado' ? 404 : 400;
+      res.status(status).json({ error: err.message });
     }
   });
 
   app.delete('/api/servicios-online/:id', async (req, res) => {
     try {
-      const servicios = await readServiciosOnline();
-      const filtered = servicios.filter((s) => s.id !== req.params.id);
-      if (filtered.length === servicios.length) {
-        return res.status(404).json({ error: 'Servicio no encontrado' });
-      }
-      await writeServiciosOnline(filtered);
+      const { conexion } = await resolveHostingConexion();
+      await hostingDb.deleteServicioOnline(conexion, parseInt(req.params.id, 10));
       res.json({ ok: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      const status = err.message === 'Servicio no encontrado' ? 404 : 500;
+      res.status(status).json({ error: err.message });
     }
   });
 
   app.post('/api/servicios-online/:id/ping', async (req, res) => {
     try {
-      const servicios = await readServiciosOnline();
-      const servicio = servicios.find((s) => s.id === req.params.id);
+      const { conexion } = await resolveHostingConexion();
+      const servicio = await hostingDb.getServicioOnline(conexion, parseInt(req.params.id, 10));
       if (!servicio) {
         return res.status(404).json({ error: 'Servicio no encontrado' });
       }

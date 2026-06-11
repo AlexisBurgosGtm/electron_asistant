@@ -7,8 +7,9 @@
     "start": "electron .",
     "dev": "electron .",
     "icons": "node scripts/generate-icons.js",
-    "prebuild": "npm run icons",
-    "prebuild:win": "npm run icons",
+    "chromium": "node scripts/install-chromium.js",
+    "prebuild": "npm run icons && npm run chromium",
+    "prebuild:win": "npm run icons && npm run chromium",
     "build": "electron-builder",
     "build:win": "electron-builder --win"
   },
@@ -71,6 +72,15 @@
       ],
       "icon": "build/icon.ico"
     },
+    "extraResources": [
+      {
+        "from": "build/puppeteer-cache",
+        "to": "puppeteer-cache",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,

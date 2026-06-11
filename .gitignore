@@ -9,3 +9,4 @@ Thumbs.db
 google-credentials.json
 google-tokens.json
 build/icon.ico
+build/puppeteer-cache/

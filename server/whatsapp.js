@@ -1,8 +1,6 @@
-const fs = require('fs');
-const fsSync = require('fs');
-const path = require('path');
 const qrcode = require('qrcode');
 const appPaths = require('./appPaths');
+const { resolveChromiumExecutable } = require('./chromium');
 
 const MAX_MESSAGES = 100;
 const UNREAD_POLL_MS = 2500;
@@ -31,66 +29,6 @@ function getWhatsAppWeb() {
 
 function getAuthPath() {
   return appPaths.whatsappAuthPath();
-}
-
-function setupPuppeteerEnv() {
-  const cacheDir = appPaths.puppeteerCachePath();
-  process.env.PUPPETEER_CACHE_DIR = cacheDir;
-  process.env.PUPPETEER_DOWNLOAD_PATH = cacheDir;
-}
-
-async function resolveChromiumExecutable() {
-  setupPuppeteerEnv();
-
-  let puppeteer;
-  try {
-    puppeteer = appPaths.resolveModule('puppeteer');
-  } catch (err) {
-    throw new Error(`No se pudo cargar Puppeteer: ${err.message}`);
-  }
-
-  let execPath = '';
-  try {
-    execPath = puppeteer.executablePath();
-  } catch {
-    execPath = '';
-  }
-
-  if (execPath && fsSync.existsSync(execPath)) {
-    return execPath;
-  }
-
-  try {
-    const browsers = appPaths.resolveModule('@puppeteer/browsers');
-    const cacheDir = appPaths.puppeteerCachePath();
-    const platform = browsers.detectBrowserPlatform();
-    const buildId = await browsers.resolveBuildId(
-      browsers.Browser.CHROME,
-      browsers.ChromeReleaseChannel.STABLE
-    );
-    const installed = await browsers.install({
-      browser: browsers.Browser.CHROME,
-      cacheDir,
-      buildId,
-      platform,
-    });
-    if (installed?.executablePath && fsSync.existsSync(installed.executablePath)) {
-      return installed.executablePath;
-    }
-  } catch (err) {
-    console.warn('WhatsApp: instalación de Chrome:', err.message);
-  }
-
-  try {
-    execPath = puppeteer.executablePath();
-    if (execPath && fsSync.existsSync(execPath)) return execPath;
-  } catch {
-    /* ignore */
-  }
-
-  throw new Error(
-    'Chromium no encontrado. Conéctate a internet, reinicia la app y vuelve a intentar (la primera vez descarga el navegador).'
-  );
 }
 
 async function getPuppeteerOptions() {

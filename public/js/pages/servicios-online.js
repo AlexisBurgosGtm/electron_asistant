@@ -232,24 +232,77 @@ function bindTableEvents(container, servicios, reload) {
   });
 }
 
-export function openNewServicioModal() {
-  openServicioModal(null, () => window.__reloadServiciosOnline?.());
+function renderHostingBanner(hosting) {
+  if (!hosting?.conexion) {
+    return `
+      <div class="hosting-banner hosting-banner--warn glass">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>Configura el <strong>Hosting principal</strong> en Configuraciones para usar esta sección.</span>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="hosting-banner glass">
+      <i class="fa-solid fa-server"></i>
+      <span>Hosting: <strong>${escapeHtml(hosting.conexion.nombre)}</strong> — tabla <code>SERVICIOS_ONLINE</code></span>
+    </div>
+  `;
+}
+
+export async function openNewServicioModal() {
+  try {
+    const hosting = await api.getHostingStatus();
+    if (!hosting.principalConexionId) {
+      showToast('Configura el Hosting principal en Configuraciones', 'error');
+      return;
+    }
+    openServicioModal(null, () => window.__reloadServiciosOnline?.());
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
 }
 
 export async function renderServiciosOnline(container) {
   showLoader(container, 'Cargando servicios...');
 
+  let hosting;
   let servicios = [];
+
+  try {
+    hosting = await api.getHostingStatus();
+  } catch (err) {
+    container.innerHTML = `<div class="empty-state glass"><p>${escapeHtml(err.message)}</p></div>`;
+    return;
+  }
+
+  if (!hosting.principalConexionId) {
+    stopAllPings();
+    container.innerHTML = `
+      ${renderHostingBanner(hosting)}
+      <div class="empty-state glass">
+        <i class="fa-solid fa-globe"></i>
+        <h3>Hosting principal no configurado</h3>
+        <p>Ve a Configuraciones y selecciona la conexión del hosting.</p>
+      </div>
+    `;
+    return;
+  }
 
   try {
     servicios = await api.getServiciosOnline();
   } catch (err) {
-    showToast(err.message, 'error');
+    container.innerHTML = `
+      ${renderHostingBanner(hosting)}
+      <div class="empty-state glass"><p>${escapeHtml(err.message)}</p></div>
+    `;
+    return;
   }
 
   if (!servicios.length) {
     stopAllPings();
     container.innerHTML = `
+      ${renderHostingBanner(hosting)}
       <div class="empty-state glass">
         <i class="fa-solid fa-globe"></i>
         <h3>Sin servicios online</h3>
@@ -264,6 +317,7 @@ export async function renderServiciosOnline(container) {
   }
 
   container.innerHTML = `
+    ${renderHostingBanner(hosting)}
     <div class="table-panel glass">
       <table class="data-table servicios-table">
         <thead>

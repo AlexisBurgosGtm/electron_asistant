@@ -616,6 +616,163 @@ async function deleteCommunityEmpresa(conexion, id) {
   });
 }
 
+function mapServicioOnlineRow(row) {
+  const normalized = normalizeRow(row);
+  return {
+    id: String(normalized.ID),
+    nombre: normalized.NOMBRE || '',
+    url: normalized.URL || '',
+    pingIntervalMinutes: normalized.PING_INTERVAL_MINUTES ?? 5,
+  };
+}
+
+async function ensureServiciosOnlineTable(conexion) {
+  return withHostingConnection(conexion, async (db, tipo) => {
+    if (tipo === 'mssql') {
+      await db.request().query(`
+        IF NOT EXISTS (
+          SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'SERVICIOS_ONLINE'
+        )
+        BEGIN
+          CREATE TABLE SERVICIOS_ONLINE (
+            ID INT IDENTITY(1,1) PRIMARY KEY,
+            NOMBRE VARCHAR(200) NOT NULL,
+            URL VARCHAR(500) NOT NULL,
+            PING_INTERVAL_MINUTES INT NOT NULL DEFAULT 5
+          )
+        END
+      `);
+      return;
+    }
+
+    await db.query(`
+      CREATE TABLE IF NOT EXISTS SERVICIOS_ONLINE (
+        ID INT AUTO_INCREMENT PRIMARY KEY,
+        NOMBRE VARCHAR(200) NOT NULL,
+        URL VARCHAR(500) NOT NULL,
+        PING_INTERVAL_MINUTES INT NOT NULL DEFAULT 5
+      )
+    `);
+  });
+}
+
+async function listServiciosOnline(conexion) {
+  await ensureServiciosOnlineTable(conexion);
+  return withHostingConnection(conexion, async (db, tipo) => {
+    const query = 'SELECT ID, NOMBRE, URL, PING_INTERVAL_MINUTES FROM SERVICIOS_ONLINE ORDER BY ID DESC';
+    if (tipo === 'mssql') {
+      const result = await db.request().query(query);
+      return (result.recordset || []).map(mapServicioOnlineRow);
+    }
+    const [rows] = await db.query(query);
+    return rows.map(mapServicioOnlineRow);
+  });
+}
+
+async function getServicioOnline(conexion, id) {
+  await ensureServiciosOnlineTable(conexion);
+  return withHostingConnection(conexion, async (db, tipo) => {
+    if (tipo === 'mssql') {
+      const result = await db.request()
+        .input('id', sql.Int, id)
+        .query('SELECT ID, NOMBRE, URL, PING_INTERVAL_MINUTES FROM SERVICIOS_ONLINE WHERE ID = @id');
+      if (!result.recordset.length) return null;
+      return mapServicioOnlineRow(result.recordset[0]);
+    }
+
+    const [rows] = await db.query(
+      'SELECT ID, NOMBRE, URL, PING_INTERVAL_MINUTES FROM SERVICIOS_ONLINE WHERE ID = ?',
+      [id]
+    );
+    return rows.length ? mapServicioOnlineRow(rows[0]) : null;
+  });
+}
+
+async function createServicioOnline(conexion, data) {
+  await ensureServiciosOnlineTable(conexion);
+  const nombre = (data.nombre || 'Sin nombre').trim();
+  const url = (data.url || '').trim();
+  const pingIntervalMinutes = parseInt(data.pingIntervalMinutes, 10) || 5;
+
+  return withHostingConnection(conexion, async (db, tipo) => {
+    if (tipo === 'mssql') {
+      const result = await db.request()
+        .input('nombre', sql.VarChar(200), nombre)
+        .input('url', sql.VarChar(500), url)
+        .input('ping', sql.Int, pingIntervalMinutes)
+        .query(`
+          INSERT INTO SERVICIOS_ONLINE (NOMBRE, URL, PING_INTERVAL_MINUTES)
+          OUTPUT INSERTED.ID, INSERTED.NOMBRE, INSERTED.URL, INSERTED.PING_INTERVAL_MINUTES
+          VALUES (@nombre, @url, @ping)
+        `);
+      return mapServicioOnlineRow(result.recordset[0]);
+    }
+
+    const [result] = await db.query(
+      'INSERT INTO SERVICIOS_ONLINE (NOMBRE, URL, PING_INTERVAL_MINUTES) VALUES (?, ?, ?)',
+      [nombre, url, pingIntervalMinutes]
+    );
+    const [rows] = await db.query(
+      'SELECT ID, NOMBRE, URL, PING_INTERVAL_MINUTES FROM SERVICIOS_ONLINE WHERE ID = ?',
+      [result.insertId]
+    );
+    return mapServicioOnlineRow(rows[0]);
+  });
+}
+
+async function updateServicioOnline(conexion, id, data) {
+  await ensureServiciosOnlineTable(conexion);
+  const current = await getServicioOnline(conexion, id);
+  if (!current) throw new Error('Servicio no encontrado');
+
+  const nombre = data.nombre !== undefined ? String(data.nombre).trim() : current.nombre;
+  const url = data.url !== undefined ? String(data.url).trim() : current.url;
+  const pingIntervalMinutes = data.pingIntervalMinutes !== undefined
+    ? parseInt(data.pingIntervalMinutes, 10) || 5
+    : current.pingIntervalMinutes;
+
+  return withHostingConnection(conexion, async (db, tipo) => {
+    if (tipo === 'mssql') {
+      const result = await db.request()
+        .input('id', sql.Int, id)
+        .input('nombre', sql.VarChar(200), nombre)
+        .input('url', sql.VarChar(500), url)
+        .input('ping', sql.Int, pingIntervalMinutes)
+        .query(`
+          UPDATE SERVICIOS_ONLINE
+          SET NOMBRE = @nombre, URL = @url, PING_INTERVAL_MINUTES = @ping
+          OUTPUT INSERTED.ID, INSERTED.NOMBRE, INSERTED.URL, INSERTED.PING_INTERVAL_MINUTES
+          WHERE ID = @id
+        `);
+      if (!result.recordset.length) throw new Error('Servicio no encontrado');
+      return mapServicioOnlineRow(result.recordset[0]);
+    }
+
+    const [result] = await db.query(
+      'UPDATE SERVICIOS_ONLINE SET NOMBRE=?, URL=?, PING_INTERVAL_MINUTES=? WHERE ID=?',
+      [nombre, url, pingIntervalMinutes, id]
+    );
+    if (!result.affectedRows) throw new Error('Servicio no encontrado');
+    return getServicioOnline(conexion, id);
+  });
+}
+
+async function deleteServicioOnline(conexion, id) {
+  return withHostingConnection(conexion, async (db, tipo) => {
+    if (tipo === 'mssql') {
+      const result = await db.request()
+        .input('id', sql.Int, id)
+        .query('DELETE FROM SERVICIOS_ONLINE WHERE ID = @id');
+      if (!result.rowsAffected[0]) throw new Error('Servicio no encontrado');
+      return { ok: true };
+    }
+
+    const [result] = await db.query('DELETE FROM SERVICIOS_ONLINE WHERE ID = ?', [id]);
+    if (!result.affectedRows) throw new Error('Servicio no encontrado');
+    return { ok: true };
+  });
+}
+
 module.exports = {
   withHostingConnection,
   ensureSoporteTable,
@@ -638,4 +795,10 @@ module.exports = {
   createCommunityEmpresa,
   updateCommunityEmpresa,
   deleteCommunityEmpresa,
+  ensureServiciosOnlineTable,
+  listServiciosOnline,
+  getServicioOnline,
+  createServicioOnline,
+  updateServicioOnline,
+  deleteServicioOnline,
 };
