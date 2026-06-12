@@ -108,16 +108,19 @@ export function isMessagePhoneOmitted(message) {
   if (!omittedPhones.length || !message) return false;
 
   const candidates = [
-    message.from,
-    message.chatId,
+    message.remoteJid,
     message.author,
-    getContactDisplayName(message),
-  ].map(normalizePhone).filter(Boolean);
+    message.chatId,
+  ]
+    .map(normalizePhone)
+    .filter((phone) => phone.length >= 8);
 
-  return omittedPhones.some((omitted) => candidates.some((phone) => {
-    if (!phone || !omitted) return false;
-    return phone === omitted || phone.endsWith(omitted) || omitted.endsWith(phone) || phone.includes(omitted);
-  }));
+  if (!candidates.length) return false;
+
+  return omittedPhones.some((omitted) => {
+    if (!omitted || omitted.length < 8) return false;
+    return candidates.some((phone) => phone === omitted || phone.endsWith(omitted) || omitted.endsWith(phone));
+  });
 }
 
 export function filterOmittedWords(text) {
@@ -180,10 +183,7 @@ function dispatchEvent(data) {
 }
 
 function enqueueTts(message) {
-  if (!ttsEnabled) return;
-  if (isMessagePhoneOmitted(message)) return;
-  if (!ttsAnnounceSenderOnly && !filterOmittedWords(message.body || '').trim()) return;
-  if (spokenMessageIds.has(message.id)) return;
+  if (!ttsEnabled || spokenMessageIds.has(message.id)) return;
 
   const speech = formatMessageForSpeech(message);
   if (!speech) return;
@@ -214,13 +214,19 @@ function scheduleTts(message) {
   }, 3000);
 }
 
+function markPollReady(messages = []) {
+  messages.forEach((msg) => {
+    if (msg?.id) knownMessageIds.add(msg.id);
+  });
+  pollInitialized = true;
+}
+
 function handleNewMessage(message, options = {}) {
   if (!message?.id) return;
+  if (!pollInitialized && !options.force) return;
 
   const isNew = !knownMessageIds.has(message.id);
   knownMessageIds.add(message.id);
-
-  if (!pollInitialized && !options.force) return;
 
   if (isNew || options.forceNotify) {
     dispatchEvent({ type: 'message', message });
@@ -233,6 +239,7 @@ function handleNewMessage(message, options = {}) {
 
 function handleMessageUpdate(message) {
   if (!message?.id) return;
+  if (!pollInitialized) return;
 
   knownMessageIds.add(message.id);
   dispatchEvent({ type: 'message_update', message });
@@ -249,10 +256,7 @@ function handleMessageUpdate(message) {
 
 function handleEvent(data) {
   if (data.type === 'init') {
-    if (!pollInitialized) {
-      (data.messages || []).forEach((msg) => knownMessageIds.add(msg.id));
-      pollInitialized = true;
-    }
+    markPollReady(data.messages || []);
     dispatchEvent(data);
     return;
   }
@@ -303,8 +307,7 @@ async function pollMessages() {
     ]);
 
     if (!pollInitialized) {
-      messages.forEach((msg) => knownMessageIds.add(msg.id));
-      pollInitialized = true;
+      markPollReady(messages);
       if (status.status === 'ready') {
         dispatchEvent({ type: 'status', ...status });
       }

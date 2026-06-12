@@ -124,6 +124,13 @@ function bindTaskActions(container, onComplete) {
   });
 }
 
+function isGoogleAuthError(message) {
+  const text = String(message || '').toLowerCase();
+  return text.includes('invalid_grant')
+    || text.includes('expiró')
+    || text.includes('conectar tu cuenta');
+}
+
 export async function renderTareas(container) {
   showLoader(container, 'Cargando tareas...');
 
@@ -282,6 +289,15 @@ export async function renderTareas(container) {
         tasksGrid.innerHTML = renderTasks(getCurrentList(), currentListId);
         bindTaskActions(tasksGrid, refreshTasks);
       } catch (err) {
+        if (isGoogleAuthError(err.message)) {
+          showToast('Sesión de Google expirada. Vuelve a conectar tu cuenta.', 'info');
+          try {
+            await api.logoutGoogle();
+          } catch {
+            /* ignore */
+          }
+          return renderTareas(container);
+        }
         showToast(err.message, 'error');
         tasksGrid.innerHTML = renderTasks(getCurrentList(), currentListId);
         listTabs.innerHTML = renderTaskLists(grouped, currentListId);
@@ -291,6 +307,16 @@ export async function renderTareas(container) {
 
     renderLayout();
   } catch (err) {
+    if (isGoogleAuthError(err.message)) {
+      showToast('Sesión de Google expirada. Vuelve a conectar tu cuenta.', 'info');
+      try {
+        await api.logoutGoogle();
+      } catch {
+        /* ignore */
+      }
+      return renderTareas(container);
+    }
+
     container.innerHTML = `
       <div class="empty-state glass">
         <p>${escapeHtml(err.message)}</p>

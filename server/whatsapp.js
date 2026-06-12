@@ -160,6 +160,7 @@ function buildMessageEntry(msg, meta = {}) {
 
   return {
     id: msg.id?._serialized || `${Date.now()}-${Math.random()}`,
+    remoteJid: stripJid(msg.from || msg.author || ''),
     from: names.from,
     chatName: names.chatName,
     contactName: names.contactName,

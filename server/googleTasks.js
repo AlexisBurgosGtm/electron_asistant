@@ -103,17 +103,75 @@ async function ensureClient() {
   return loadClient(savedPort);
 }
 
+function isInvalidGrantError(err) {
+  const data = err?.response?.data;
+  if (data?.error === 'invalid_grant') return true;
+  const message = String(err?.message || err || '');
+  return message.includes('invalid_grant');
+}
+
+async function clearStoredTokens() {
+  try {
+    await fs.unlink(TOKENS_PATH());
+  } catch {
+    /* ignore */
+  }
+
+  if (oauth2Client) {
+    oauth2Client.setCredentials({});
+  }
+}
+
+async function verifyAuthentication() {
+  if (!oauth2Client || !isAuthenticated()) return false;
+
+  try {
+    const access = await oauth2Client.getAccessToken();
+    return Boolean(access?.token);
+  } catch (err) {
+    if (isInvalidGrantError(err)) {
+      await clearStoredTokens();
+      return false;
+    }
+    throw err;
+  }
+}
+
+async function withGoogleApi(fn) {
+  await ensureClient();
+  const valid = await verifyAuthentication();
+  if (!valid) {
+    throw new Error('La sesión de Google expiró. Vuelve a conectar tu cuenta.');
+  }
+
+  try {
+    return await fn();
+  } catch (err) {
+    if (isInvalidGrantError(err)) {
+      await clearStoredTokens();
+      throw new Error('La sesión de Google expiró. Vuelve a conectar tu cuenta.');
+    }
+    throw err;
+  }
+}
+
 function isAuthenticated() {
   const creds = oauth2Client?.credentials;
   return Boolean(creds?.access_token || creds?.refresh_token);
 }
 
-function getStatus() {
+async function getStatus() {
+  await ensureClient();
   const hasCredentials = credentialsExist();
+  let authenticated = false;
+
+  if (hasCredentials && oauth2Client) {
+    authenticated = await verifyAuthentication();
+  }
 
   return {
     hasCredentials,
-    authenticated: isAuthenticated(),
+    authenticated,
     redirectUri,
     projectId: credentialsMeta.projectId,
     credentialsSource: credentialsMeta.source,
@@ -180,24 +238,24 @@ function ensureAuth() {
 }
 
 async function getTaskLists() {
-  await ensureClient();
-  ensureAuth();
-  const service = google.tasks({ version: 'v1', auth: oauth2Client });
-  const response = await service.tasklists.list({ maxResults: 100 });
-  return response.data.items || [];
+  return withGoogleApi(async () => {
+    const service = google.tasks({ version: 'v1', auth: oauth2Client });
+    const response = await service.tasklists.list({ maxResults: 100 });
+    return response.data.items || [];
+  });
 }
 
 async function getTasks(taskListId) {
-  await ensureClient();
-  ensureAuth();
-  const service = google.tasks({ version: 'v1', auth: oauth2Client });
-  const response = await service.tasks.list({
-    tasklist: taskListId,
-    showCompleted: true,
-    showHidden: true,
-    maxResults: 100,
+  return withGoogleApi(async () => {
+    const service = google.tasks({ version: 'v1', auth: oauth2Client });
+    const response = await service.tasks.list({
+      tasklist: taskListId,
+      showCompleted: true,
+      showHidden: true,
+      maxResults: 100,
+    });
+    return response.data.items || [];
   });
-  return response.data.items || [];
 }
 
 async function getAllTasksGrouped() {
@@ -224,19 +282,19 @@ async function getAllTasksGrouped() {
 }
 
 async function completeTask(taskListId, taskId) {
-  await ensureClient();
-  ensureAuth();
-  const service = google.tasks({ version: 'v1', auth: oauth2Client });
-  const response = await service.tasks.patch({
-    tasklist: taskListId,
-    task: taskId,
-    requestBody: { status: 'completed' },
+  return withGoogleApi(async () => {
+    const service = google.tasks({ version: 'v1', auth: oauth2Client });
+    const response = await service.tasks.patch({
+      tasklist: taskListId,
+      task: taskId,
+      requestBody: { status: 'completed' },
+    });
+    return {
+      id: response.data.id,
+      title: response.data.title || 'Sin título',
+      status: response.data.status,
+    };
   });
-  return {
-    id: response.data.id,
-    title: response.data.title || 'Sin título',
-    status: response.data.status,
-  };
 }
 
 module.exports = {
