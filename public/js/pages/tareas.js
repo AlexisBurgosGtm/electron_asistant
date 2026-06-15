@@ -131,13 +131,6 @@ function isGoogleAuthError(message) {
     || text.includes('conectar tu cuenta');
 }
 
-function isGoogleAuthError(message) {
-  const text = String(message || '').toLowerCase();
-  return text.includes('invalid_grant')
-    || text.includes('expiró')
-    || text.includes('conectar tu cuenta');
-}
-
 function renderGoogleCredentialsForm(status) {
   const redirectUri = status.redirectUri || 'http://localhost:9006/api/google/callback';
   return `
