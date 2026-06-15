@@ -7,12 +7,9 @@ let pollTimer = null;
 let ttsEnabled = localStorage.getItem(TTS_KEY) !== 'false';
 let ttsAnnounceSenderOnly = false;
 let omittedWords = [];
-let omittedPhones = [];
 let omittedWordsRaw = '';
-let omittedPhonesRaw = '';
 const listeners = new Set();
 const senderOnlyListeners = new Set();
-const omitListeners = new Set();
 const knownMessageIds = new Set();
 const spokenMessageIds = new Set();
 const pendingTts = new Map();
@@ -56,22 +53,14 @@ function parseCsvList(value) {
   return String(value || '').split(',').map((s) => s.trim()).filter(Boolean);
 }
 
-function normalizePhone(value) {
-  return String(value || '').replace(/\D/g, '');
-}
-
 function applyOmitConfig(config) {
   omittedWordsRaw = String(config?.whatsapp?.omittedWords || '');
-  omittedPhonesRaw = String(config?.whatsapp?.omittedPhones || '');
   omittedWords = parseCsvList(omittedWordsRaw);
-  omittedPhones = parseCsvList(omittedPhonesRaw).map(normalizePhone).filter(Boolean);
-  omitListeners.forEach((fn) => fn({ omittedWords, omittedPhones }));
 }
 
 export function getWhatsAppOmitConfig() {
   return {
     omittedWords: omittedWordsRaw,
-    omittedPhones: omittedPhonesRaw,
   };
 }
 
@@ -84,43 +73,6 @@ export async function setWhatsAppOmittedWords(value) {
   } catch {
     /* mantener valor local */
   }
-  omitListeners.forEach((fn) => fn({ omittedWords, omittedPhones }));
-}
-
-export async function setWhatsAppOmittedPhones(value) {
-  const text = String(value ?? '');
-  omittedPhonesRaw = text;
-  omittedPhones = parseCsvList(text).map(normalizePhone).filter(Boolean);
-  try {
-    await api.updateConfig({ whatsapp: { omittedPhones: text } });
-  } catch {
-    /* mantener valor local */
-  }
-  omitListeners.forEach((fn) => fn({ omittedWords, omittedPhones }));
-}
-
-export function onWhatsAppOmitChange(fn) {
-  omitListeners.add(fn);
-  return () => omitListeners.delete(fn);
-}
-
-export function isMessagePhoneOmitted(message) {
-  if (!omittedPhones.length || !message) return false;
-
-  const candidates = [
-    message.remoteJid,
-    message.author,
-    message.chatId,
-  ]
-    .map(normalizePhone)
-    .filter((phone) => phone.length >= 8);
-
-  if (!candidates.length) return false;
-
-  return omittedPhones.some((omitted) => {
-    if (!omitted || omitted.length < 8) return false;
-    return candidates.some((phone) => phone === omitted || phone.endsWith(omitted) || omitted.endsWith(phone));
-  });
 }
 
 export function filterOmittedWords(text) {
@@ -169,8 +121,6 @@ function looksLikePhone(value) {
 }
 
 export function formatMessageForSpeech(message) {
-  if (isMessagePhoneOmitted(message)) return null;
-
   const from = getContactDisplayName(message);
   if (ttsAnnounceSenderOnly) return `Nuevo mensaje de ${from}`;
 
@@ -216,7 +166,11 @@ function scheduleTts(message) {
 
 function markPollReady(messages = []) {
   messages.forEach((msg) => {
-    if (msg?.id) knownMessageIds.add(msg.id);
+    if (!msg?.id) return;
+    knownMessageIds.add(msg.id);
+    if (msg.unread && !spokenMessageIds.has(msg.id)) {
+      scheduleTts(msg);
+    }
   });
   pollInitialized = true;
 }
@@ -232,7 +186,7 @@ function handleNewMessage(message, options = {}) {
     dispatchEvent({ type: 'message', message });
   }
 
-  if (isNew) {
+  if (isNew && message.unread) {
     scheduleTts(message);
   }
 }
@@ -244,7 +198,7 @@ function handleMessageUpdate(message) {
   knownMessageIds.add(message.id);
   dispatchEvent({ type: 'message_update', message });
 
-  if (spokenMessageIds.has(message.id)) return;
+  if (spokenMessageIds.has(message.id) || !message.unread) return;
 
   const pending = pendingTts.get(message.id);
   if (pending?.waitTimer) {
@@ -257,6 +211,19 @@ function handleMessageUpdate(message) {
 function handleEvent(data) {
   if (data.type === 'init') {
     markPollReady(data.messages || []);
+    dispatchEvent(data);
+    return;
+  }
+
+  if (data.type === 'messages_sync') {
+    (data.messages || []).forEach((msg) => {
+      if (!msg?.id) return;
+      const isNew = !knownMessageIds.has(msg.id);
+      knownMessageIds.add(msg.id);
+      if (isNew && msg.unread) {
+        scheduleTts(msg);
+      }
+    });
     dispatchEvent(data);
     return;
   }
@@ -315,7 +282,15 @@ async function pollMessages() {
     }
 
     const sorted = [...messages].sort((a, b) => a.timestamp - b.timestamp);
-    sorted.forEach((msg) => handleNewMessage(msg));
+    let changed = false;
+    sorted.forEach((msg) => {
+      const wasKnown = knownMessageIds.has(msg.id);
+      handleNewMessage(msg);
+      if (!wasKnown && knownMessageIds.has(msg.id)) changed = true;
+    });
+    if (changed) {
+      dispatchEvent({ type: 'messages_sync', messages, ...status });
+    }
   } catch {
     /* ignore */
   }

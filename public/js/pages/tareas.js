@@ -131,6 +131,80 @@ function isGoogleAuthError(message) {
     || text.includes('conectar tu cuenta');
 }
 
+function isGoogleAuthError(message) {
+  const text = String(message || '').toLowerCase();
+  return text.includes('invalid_grant')
+    || text.includes('expiró')
+    || text.includes('conectar tu cuenta');
+}
+
+function renderGoogleCredentialsForm(status) {
+  const redirectUri = status.redirectUri || 'http://localhost:9006/api/google/callback';
+  return `
+    <div class="tasks-credentials glass">
+      <div class="tasks-credentials__header">
+        <i class="fa-brands fa-google"></i>
+        <div>
+          <h3>Configurar Google Tasks</h3>
+          <p>Ingresa las credenciales OAuth de Google Cloud Console para conectar el servicio.</p>
+        </div>
+      </div>
+      <form id="google-credentials-form" class="form-grid" novalidate>
+        <div class="form-group form-group--full">
+          <label for="google-client-id">Client ID</label>
+          <input type="text" id="google-client-id" required placeholder="xxxxx.apps.googleusercontent.com">
+        </div>
+        <div class="form-group form-group--full">
+          <label for="google-client-secret">Client Secret</label>
+          <input type="password" id="google-client-secret" required placeholder="GOCSPX-...">
+        </div>
+        <div class="form-group">
+          <label for="google-project-id">Project ID (opcional)</label>
+          <input type="text" id="google-project-id" placeholder="mi-proyecto">
+        </div>
+        <div class="form-group">
+          <label for="google-redirect-uri">URI de redirección</label>
+          <input type="url" id="google-redirect-uri" value="${escapeHtml(redirectUri)}">
+        </div>
+        <p class="voice-hints__note form-group--full">
+          En Google Cloud, crea credenciales tipo <strong>Aplicación web</strong> y autoriza la URI de redirección indicada.
+        </p>
+        <div class="form-actions form-group--full">
+          <button type="submit" class="btn btn--primary">
+            <i class="fa-solid fa-floppy-disk"></i> Guardar y continuar
+          </button>
+        </div>
+      </form>
+    </div>
+  `;
+}
+
+function bindGoogleCredentialsForm(container) {
+  const form = container.querySelector('#google-credentials-form');
+  if (!form) return;
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = form.querySelector('[type="submit"]');
+    if (submitBtn) submitBtn.disabled = true;
+
+    try {
+      await api.saveGoogleCredentials({
+        clientId: form.querySelector('#google-client-id').value,
+        clientSecret: form.querySelector('#google-client-secret').value,
+        projectId: form.querySelector('#google-project-id').value,
+        redirectUri: form.querySelector('#google-redirect-uri').value,
+      });
+      showToast('Credenciales guardadas. Ahora conecta tu cuenta.', 'success');
+      await renderTareas(container);
+    } catch (err) {
+      showToast(err.message, 'error');
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+}
+
 export async function renderTareas(container) {
   showLoader(container, 'Cargando tareas...');
 
@@ -143,16 +217,8 @@ export async function renderTareas(container) {
   }
 
   if (!status.hasCredentials) {
-    container.innerHTML = `
-      <div class="empty-state glass">
-        <i class="fa-brands fa-google"></i>
-        <h3>Configura Google Tasks</h3>
-        <p>Coloca el archivo <code>google-credentials.json</code> descargado de Google Cloud en:</p>
-        <p class="voice-hints__note"><code>${escapeHtml(status.credentialsPath || status.dataDir || '')}</code></p>
-        ${status.isPackaged ? '<p class="voice-hints__note">También puedes dejarlo junto al ejecutable de la app; se copiará automáticamente al iniciar.</p>' : ''}
-        <p class="voice-hints__note">URI de redirección autorizada: <code>${escapeHtml(status.redirectUri || 'http://localhost:9006/api/google/callback')}</code></p>
-      </div>
-    `;
+    container.innerHTML = renderGoogleCredentialsForm(status);
+    bindGoogleCredentialsForm(container);
     return;
   }
 

@@ -19,6 +19,7 @@ let wwebLib = null;
 const sseClients = new Set();
 const messages = [];
 const processedMessageIds = new Set();
+let initialUnreadSyncDone = false;
 
 function getWhatsAppWeb() {
   if (!wwebLib) {
@@ -155,7 +156,7 @@ function shouldProcessMessage(msg) {
   return true;
 }
 
-function buildMessageEntry(msg, meta = {}) {
+function buildMessageEntry(msg, meta = {}, options = {}) {
   const names = resolveDisplayNames(msg, meta.contact, meta.chat);
 
   return {
@@ -168,6 +169,7 @@ function buildMessageEntry(msg, meta = {}) {
     type: msg.type,
     timestamp: msg.timestamp ? msg.timestamp * 1000 : Date.now(),
     fromMe: false,
+    unread: Boolean(options.unread),
   };
 }
 
@@ -193,16 +195,20 @@ async function enrichAndStore(msg, entry) {
     /* ignore */
   }
 
-  const enriched = buildMessageEntry(msg, { contact, chat });
+  const enriched = buildMessageEntry(msg, { contact, chat }, { unread: entry.unread });
   enriched.id = entry.id;
   enriched.timestamp = entry.timestamp;
   addMessage(enriched);
 }
 
-async function handleIncomingMessage(msg) {
+function broadcastMessagesSync() {
+  broadcast({ type: 'messages_sync', messages: [...messages], ...getPublicState() });
+}
+
+async function handleIncomingMessage(msg, options = {}) {
   if (!shouldProcessMessage(msg)) return;
 
-  const entry = buildMessageEntry(msg);
+  const entry = buildMessageEntry(msg, {}, options);
   if (processedMessageIds.has(entry.id)) return;
 
   processedMessageIds.add(entry.id);
@@ -217,7 +223,9 @@ async function handleIncomingMessage(msg) {
 function bindMessageEvents(waClient) {
   waClient.removeAllListeners('message');
   waClient.removeAllListeners('message_create');
-  waClient.on('message_create', handleIncomingMessage);
+  waClient.on('message_create', (msg) => {
+    handleIncomingMessage(msg, { unread: true });
+  });
 }
 
 async function pollUnreadMessages() {
@@ -226,14 +234,26 @@ async function pollUnreadMessages() {
   try {
     const chats = await client.getChats();
     const unreadChats = chats.filter((c) => c.unreadCount > 0);
+    let added = 0;
 
     for (const chat of unreadChats) {
       const limit = Math.min(chat.unreadCount + 2, 20);
       const fetched = await chat.fetchMessages({ limit });
 
       for (const msg of fetched) {
-        await handleIncomingMessage(msg);
+        const id = msg.id?._serialized;
+        const isNew = Boolean(id && !processedMessageIds.has(id));
+        const beforeCount = messages.length;
+        await handleIncomingMessage(msg, { unread: isNew });
+        if (messages.length > beforeCount) added += 1;
       }
+    }
+
+    if (!initialUnreadSyncDone) {
+      initialUnreadSyncDone = true;
+      broadcastMessagesSync();
+    } else if (added > 0) {
+      broadcastMessagesSync();
     }
   } catch (err) {
     console.warn('WhatsApp poll:', err.message);
@@ -294,6 +314,7 @@ async function createClient() {
       state.status = 'ready';
       state.qr = null;
       state.error = null;
+      initialUnreadSyncDone = false;
       state.info = client.info
         ? {
             pushname: client.info.pushname,
@@ -388,6 +409,7 @@ async function logoutSession() {
   state.info = null;
   messages.length = 0;
   processedMessageIds.clear();
+  initialUnreadSyncDone = false;
   broadcast({ type: 'status', ...getPublicState() });
   return getPublicState();
 }
@@ -425,6 +447,7 @@ async function refreshSession() {
 
   bindMessageEvents(client);
   await pollUnreadMessages();
+  broadcastMessagesSync();
   broadcast({ type: 'status', ...getPublicState() });
   return getPublicState();
 }

@@ -142,7 +142,6 @@ const DEFAULT_CONFIG = {
   whatsapp: {
     ttsAnnounceSenderOnly: false,
     omittedWords: '',
-    omittedPhones: '',
   },
   conexiones: {
     autoPing: true,
@@ -878,9 +877,18 @@ function createApp() {
   app.get('/api/google/status', async (_req, res) => {
     try {
       await googleTasks.ensureClient();
-      res.json(googleTasks.getStatus());
+      res.json(await googleTasks.getStatus());
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/google/credentials', async (req, res) => {
+    try {
+      const status = await googleTasks.saveCredentials(req.body || {});
+      res.json(status);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
     }
   });
 

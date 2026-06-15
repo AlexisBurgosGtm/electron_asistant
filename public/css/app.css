@@ -1267,6 +1267,56 @@ html, body {
   border-left: 3px solid #facc15;
 }
 
+.data-table tbody tr.servicio-row--checking {
+  animation: servicio-ping-pulse 1.2s ease-in-out infinite;
+}
+
+.data-table tbody tr.servicio-row--checking td:last-child {
+  border-right: 3px solid #facc15;
+}
+
+.servicio-ping-loader {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.servicio-row__status--checking {
+  color: #facc15;
+}
+
+@keyframes servicio-ping-pulse {
+  0%, 100% { background: rgba(250, 204, 21, 0.04); }
+  50% { background: rgba(250, 204, 21, 0.12); }
+}
+
+.tasks-credentials {
+  max-width: 640px;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+}
+
+.tasks-credentials__header {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  margin-bottom: 1.25rem;
+}
+
+.tasks-credentials__header i {
+  font-size: 2rem;
+  color: var(--accent-light);
+}
+
+.tasks-credentials__header h3 {
+  margin-bottom: 0.35rem;
+}
+
+.tasks-credentials__header p {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
 .table-actions {
   display: flex;
   gap: 0.35rem;
@@ -1845,6 +1895,7 @@ html, body {
 .theme-card__preview--white-purple { background: linear-gradient(135deg, #faf5ff, #ede9fe, #7c3aed); }
 .theme-card__preview--white-sky { background: linear-gradient(135deg, #f0f9ff, #e0f2fe, #0ea5e9); }
 .theme-card__preview--carbon { background: linear-gradient(135deg, #161616, #393939, #0f62fe); }
+.theme-card__preview--construccion { background: linear-gradient(135deg, #0d0d0d, #D4A017, #ffffff); }
 
 .theme-card__label {
   font-size: 0.82rem;
@@ -1954,9 +2005,25 @@ html, body {
   --text-muted: #8d8d8d;
 }
 
+[data-theme="construccion"] {
+  --bg-deep: #0d0d0d;
+  --bg-primary: #141414;
+  --bg-secondary: #1f1f1f;
+  --glass-bg: rgba(20, 20, 20, 0.88);
+  --glass-border: rgba(212, 160, 23, 0.35);
+  --glass-highlight: rgba(255, 255, 255, 0.06);
+  --accent: #D4A017;
+  --accent-light: #E8B923;
+  --accent-glow: rgba(212, 160, 23, 0.32);
+  --text-primary: #ffffff;
+  --text-secondary: #f0f0f0;
+  --text-muted: #b8b8b8;
+}
+
 [data-theme="black"] .app-bg,
 [data-theme="purple"] .app-bg,
-[data-theme="carbon"] .app-bg {
+[data-theme="carbon"] .app-bg,
+[data-theme="construccion"] .app-bg {
   background:
     radial-gradient(ellipse at 20% 50%, color-mix(in srgb, var(--accent) 18%, transparent) 0%, transparent 50%),
     linear-gradient(160deg, var(--bg-deep) 0%, var(--bg-primary) 50%, var(--bg-secondary) 100%);

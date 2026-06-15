@@ -8,6 +8,7 @@ export const THEMES = [
   { id: 'white-purple', label: 'Blanco · Morado', icon: 'fa-palette', desc: 'Claro con acentos morados' },
   { id: 'white-sky', label: 'Blanco · Celeste', icon: 'fa-cloud', desc: 'Claro con acentos celestes' },
   { id: 'carbon', label: 'Carbon', icon: 'fa-layer-group', desc: 'Estilo IBM Carbon' },
+  { id: 'construccion', label: 'Construcción', icon: 'fa-helmet-safety', desc: 'Mostaza, blanco y negro' },
 ];
 
 export function getStoredTheme() {

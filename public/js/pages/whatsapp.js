@@ -14,7 +14,6 @@ import {
   formatMessageForSpeech,
   getWhatsAppOmitConfig,
   setWhatsAppOmittedWords,
-  setWhatsAppOmittedPhones,
 } from '../services/whatsapp.js';
 
 let pollTimer = null;
@@ -22,7 +21,9 @@ let unsubscribeTts = null;
 let unsubscribeSenderOnly = null;
 let omitSaveTimer = null;
 let cachedMessages = [];
+let cachedState = { status: 'idle', qr: null, error: null, info: null };
 let messagesLoading = false;
+let pageContainer = null;
 
 function escapeHtml(text) {
   const div = document.createElement('div');
@@ -52,12 +53,21 @@ function statusLabel(status) {
   return labels[status] || status;
 }
 
+function extractState(data = {}) {
+  return {
+    status: data.status ?? cachedState.status,
+    qr: data.qr ?? cachedState.qr,
+    error: data.error ?? cachedState.error,
+    info: data.info ?? cachedState.info,
+  };
+}
+
 function renderMessages(messages) {
   if (!messages.length) {
     return `
       <div class="wa-empty">
         <i class="fa-brands fa-whatsapp"></i>
-        <p>Los mensajes entrantes aparecerán aquí</p>
+        <p>Los mensajes sin leer aparecerán aquí</p>
       </div>
     `;
   }
@@ -83,7 +93,6 @@ function bindMessageEvents(container) {
       if (!msg) return;
       const speech = formatMessageForSpeech(msg);
       if (speech) speakQueued(speech);
-      else showToast('Mensaje omitido por configuración', 'info');
     });
   });
 }
@@ -110,6 +119,11 @@ function updateQrOverlay(container, state, messages) {
 }
 
 function updateView(container, state, messages) {
+  if (!container?.isConnected) return;
+
+  cachedState = state;
+  cachedMessages = messages;
+
   const statusEl = container.querySelector('#wa-connection-status');
   const userEl = container.querySelector('#wa-user-info');
   const messagesEl = container.querySelector('#wa-messages');
@@ -154,6 +168,8 @@ function updateView(container, state, messages) {
 }
 
 async function refreshState(container, { showMessagesLoader = false } = {}) {
+  if (!container?.isConnected) return;
+
   const messagesEl = container.querySelector('#wa-messages');
   messagesLoading = showMessagesLoader;
 
@@ -171,7 +187,6 @@ async function refreshState(container, { showMessagesLoader = false } = {}) {
       api.getWhatsAppStatus(),
       api.getWhatsAppMessages(),
     ]);
-    cachedMessages = messages;
     messagesLoading = false;
     updateView(container, state, messages);
   } catch (err) {
@@ -180,12 +195,40 @@ async function refreshState(container, { showMessagesLoader = false } = {}) {
   }
 }
 
-function handleWhatsAppEvent(container, data) {
-  if (data.type === 'init' || data.type === 'status') {
-    refreshState(container);
+function upsertMessage(message) {
+  if (!message?.id) return;
+  const index = cachedMessages.findIndex((m) => m.id === message.id);
+  if (index >= 0) {
+    cachedMessages[index] = { ...cachedMessages[index], ...message };
+  } else {
+    cachedMessages.unshift(message);
   }
-  if (data.type === 'message' || data.type === 'message_update') {
-    refreshState(container);
+}
+
+function handleWhatsAppEvent(container, data) {
+  if (!container?.isConnected) return;
+
+  if (data.type === 'init' || data.type === 'messages_sync') {
+    cachedMessages = [...(data.messages || [])];
+    updateView(container, extractState(data), cachedMessages);
+    return;
+  }
+
+  if (data.type === 'status') {
+    updateView(container, extractState(data), cachedMessages);
+    return;
+  }
+
+  if (data.type === 'message' && data.message) {
+    upsertMessage(data.message);
+    updateView(container, cachedState, cachedMessages);
+    return;
+  }
+
+  if (data.type === 'message_update' && data.message) {
+    upsertMessage(data.message);
+    updateView(container, cachedState, cachedMessages);
+    return;
   }
 }
 
@@ -195,6 +238,7 @@ function scheduleOmitSave(fn) {
 }
 
 export async function renderWhatsapp(container) {
+  pageContainer = container;
   await loadWhatsAppConfig();
   const ttsOn = isWhatsAppTtsEnabled();
   const senderOnly = isWhatsAppTtsSenderOnly();
@@ -234,17 +278,12 @@ export async function renderWhatsapp(container) {
             <input type="text" id="wa-omit-words" value="${escapeHtml(omitConfig.omittedWords)}" placeholder="promo, oferta, descuento">
             <small>Separadas por coma. No se leerán al anunciar mensajes.</small>
           </label>
-          <label class="form-group form-group--full">
-            <span>Teléfonos omitidos</span>
-            <input type="text" id="wa-omit-phones" value="${escapeHtml(omitConfig.omittedPhones)}" placeholder="54911, 57300">
-            <small>Separados por coma. No se leerán mensajes de esos números.</small>
-          </label>
         </div>
       </div>
 
       <div class="wa-messages-panel glass">
         <div class="wa-messages-header">
-          <h3><i class="fa-solid fa-inbox"></i> Mensajes entrantes</h3>
+          <h3><i class="fa-solid fa-inbox"></i> Mensajes sin leer</h3>
           <button class="btn btn--ghost btn--sm" id="wa-refresh-btn" type="button" title="Reconectar y buscar mensajes nuevos">
             <i class="fa-solid fa-rotate"></i> Refrescar
           </button>
@@ -282,15 +321,8 @@ export async function renderWhatsapp(container) {
     senderOnlyToggle.checked = enabled;
   });
 
-  const omitWordsInput = container.querySelector('#wa-omit-words');
-  const omitPhonesInput = container.querySelector('#wa-omit-phones');
-
-  omitWordsInput?.addEventListener('input', () => {
-    scheduleOmitSave(() => setWhatsAppOmittedWords(omitWordsInput.value));
-  });
-
-  omitPhonesInput?.addEventListener('input', () => {
-    scheduleOmitSave(() => setWhatsAppOmittedPhones(omitPhonesInput.value));
+  container.querySelector('#wa-omit-words')?.addEventListener('input', (e) => {
+    scheduleOmitSave(() => setWhatsAppOmittedWords(e.target.value));
   });
 
   container.querySelector('#wa-refresh-btn').addEventListener('click', async () => {
@@ -342,7 +374,7 @@ export async function renderWhatsapp(container) {
 
   await refreshState(container, { showMessagesLoader: true });
 
-  pollTimer = setInterval(() => refreshState(container), 3000);
+  pollTimer = setInterval(() => refreshState(container), 5000);
 }
 
 export function cleanupWhatsappPage() {
@@ -363,4 +395,5 @@ export function cleanupWhatsappPage() {
     unsubscribeSenderOnly = null;
   }
   window.__onWhatsAppEvent = null;
+  pageContainer = null;
 }

@@ -68,6 +68,7 @@ export const api = {
   refreshWhatsApp: () => request('/whatsapp/refresh', { method: 'POST' }),
   logoutWhatsApp: () => request('/whatsapp/logout', { method: 'POST' }),
   getGoogleStatus: () => request('/google/status'),
+  saveGoogleCredentials: (data) => request('/google/credentials', { method: 'POST', body: JSON.stringify(data) }),
   getGoogleAuthUrl: () => request('/google/auth-url'),
   getGoogleTasks: () => request('/google/tasks'),
   completeGoogleTask: (listId, taskId) => request(`/google/tasks/${listId}/${taskId}/complete`, { method: 'POST' }),

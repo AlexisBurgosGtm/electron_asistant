@@ -31,7 +31,11 @@ function getSoporteFormHtml(record, tokens) {
         </div>
         <div class="form-group">
           <label for="soporte-tipo">Tipo</label>
-          <input type="text" id="soporte-tipo" value="${escapeHtml(data.TIPO || '')}">
+          <select id="soporte-tipo">
+            <option value="">— Seleccionar —</option>
+            <option value="SERVER" ${data.TIPO === 'SERVER' ? 'selected' : ''}>SERVER</option>
+            <option value="OPER" ${data.TIPO === 'OPER' ? 'selected' : ''}>OPER</option>
+          </select>
         </div>
         <div class="form-group">
           <label for="soporte-anydesk">AnyDesk</label>

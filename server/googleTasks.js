@@ -297,6 +297,33 @@ async function completeTask(taskListId, taskId) {
   });
 }
 
+async function saveCredentials({ clientId, clientSecret, projectId, redirectUri }) {
+  const id = String(clientId || '').trim();
+  const secret = String(clientSecret || '').trim();
+
+  if (!id || !secret) {
+    throw new Error('Client ID y Client Secret son obligatorios');
+  }
+
+  const uri = String(redirectUri || '').trim() || `http://localhost:${savedPort}/api/google/callback`;
+  const payload = {
+    web: {
+      client_id: id,
+      client_secret: secret,
+      project_id: String(projectId || '').trim() || 'mariandre-tasks',
+      auth_uri: 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: 'https://oauth2.googleapis.com/token',
+      auth_provider_x509_cert_url: 'https://www.googleapis.com/oauth2/v1/certs',
+      redirect_uris: [uri],
+    },
+  };
+
+  await fs.writeFile(CREDENTIALS_PATH(), JSON.stringify(payload, null, 2), 'utf-8');
+  oauth2Client = null;
+  await loadClient(savedPort);
+  return getStatus();
+}
+
 module.exports = {
   loadClient,
   ensureClient,
@@ -304,6 +331,7 @@ module.exports = {
   getAuthUrl,
   handleCallback,
   logout,
+  saveCredentials,
   getTaskLists,
   getTasks,
   getAllTasksGrouped,

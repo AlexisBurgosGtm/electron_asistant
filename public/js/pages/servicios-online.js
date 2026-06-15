@@ -32,20 +32,24 @@ function applyRowStatus(id, status) {
 
   if (status === 'online') {
     row.classList.add('servicio-row--online');
-    statusEl.textContent = 'En línea';
+    statusEl.innerHTML = 'En línea';
     statusEl.className = 'servicio-row__status servicio-row__status--online';
   } else if (status === 'offline') {
     row.classList.add('servicio-row--offline');
-    statusEl.textContent = 'Fuera de línea';
+    statusEl.innerHTML = 'Fuera de línea';
     statusEl.className = 'servicio-row__status servicio-row__status--offline';
   } else if (status === 'checking') {
     row.classList.add('servicio-row--checking');
-    statusEl.textContent = 'Verificando...';
+    statusEl.innerHTML = '<span class="servicio-ping-loader"><i class="fa-solid fa-spinner fa-spin"></i> Verificando...</span>';
     statusEl.className = 'servicio-row__status servicio-row__status--checking';
   } else {
-    statusEl.textContent = 'Sin verificar';
+    statusEl.innerHTML = 'Sin verificar';
     statusEl.className = 'servicio-row__status';
   }
+
+  row.querySelectorAll('.btn-ping').forEach((btn) => {
+    btn.disabled = status === 'checking';
+  });
 }
 
 async function pingServicio(id, { silent = false } = {}) {
