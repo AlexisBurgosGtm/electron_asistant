@@ -46,6 +46,46 @@ async function writeMantenimiento(comandos) {
   await fs.writeFile(appPaths.mantenimientoPath(), JSON.stringify(comandos, null, 2), 'utf-8');
 }
 
+async function readAlarmas() {
+  try {
+    const data = await fs.readFile(appPaths.alarmasPath(), 'utf-8');
+    return JSON.parse(data);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      await fs.writeFile(appPaths.alarmasPath(), '[]', 'utf-8');
+      return [];
+    }
+    throw err;
+  }
+}
+
+async function writeAlarmas(alarmas) {
+  await fs.writeFile(appPaths.alarmasPath(), JSON.stringify(alarmas, null, 2), 'utf-8');
+}
+
+function parseAlarmaTime(body) {
+  const hora = Number(body.hora);
+  const minuto = Number(body.minuto);
+  if (!body.fecha?.trim()) {
+    throw new Error('La fecha es obligatoria');
+  }
+  if (!Number.isInteger(hora) || hora < 0 || hora > 23) {
+    throw new Error('La hora debe estar entre 0 y 23');
+  }
+  if (!Number.isInteger(minuto) || minuto < 0 || minuto > 59) {
+    throw new Error('El minuto debe estar entre 0 y 59');
+  }
+  if (!body.descripcion?.trim()) {
+    throw new Error('La descripción es obligatoria');
+  }
+  return {
+    fecha: body.fecha.trim(),
+    hora,
+    minuto,
+    descripcion: body.descripcion.trim(),
+  };
+}
+
 async function readServiciosOnline() {
   try {
     const data = await fs.readFile(appPaths.serviciosOnlinePath(), 'utf-8');
@@ -940,6 +980,88 @@ function createApp() {
   app.post('/api/google/logout', async (_req, res) => {
     try {
       await googleTasks.logout();
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/alarmas', async (_req, res) => {
+    try {
+      const alarmas = await readAlarmas();
+      res.json(alarmas);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/alarmas', async (req, res) => {
+    try {
+      const alarmas = await readAlarmas();
+      const parsed = parseAlarmaTime(req.body);
+      const nueva = {
+        id: generateId(alarmas),
+        ...parsed,
+        disparada: false,
+        creadaEn: new Date().toISOString(),
+      };
+      alarmas.push(nueva);
+      await writeAlarmas(alarmas);
+      res.status(201).json(nueva);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.put('/api/alarmas/:id', async (req, res) => {
+    try {
+      const alarmas = await readAlarmas();
+      const index = alarmas.findIndex((a) => a.id === req.params.id);
+      if (index === -1) {
+        return res.status(404).json({ error: 'Alarma no encontrada' });
+      }
+      if (alarmas[index].disparada) {
+        return res.status(400).json({ error: 'No se puede editar una alarma ya disparada' });
+      }
+      const parsed = parseAlarmaTime(req.body);
+      alarmas[index] = { ...alarmas[index], ...parsed, id: req.params.id };
+      await writeAlarmas(alarmas);
+      res.json(alarmas[index]);
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/alarmas/:id/disparar', async (req, res) => {
+    try {
+      const alarmas = await readAlarmas();
+      const index = alarmas.findIndex((a) => a.id === req.params.id);
+      if (index === -1) {
+        return res.status(404).json({ error: 'Alarma no encontrada' });
+      }
+      if (alarmas[index].disparada) {
+        return res.json(alarmas[index]);
+      }
+      alarmas[index] = {
+        ...alarmas[index],
+        disparada: true,
+        disparadaEn: new Date().toISOString(),
+      };
+      await writeAlarmas(alarmas);
+      res.json(alarmas[index]);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/alarmas/:id', async (req, res) => {
+    try {
+      const alarmas = await readAlarmas();
+      const filtered = alarmas.filter((a) => a.id !== req.params.id);
+      if (filtered.length === alarmas.length) {
+        return res.status(404).json({ error: 'Alarma no encontrada' });
+      }
+      await writeAlarmas(filtered);
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });

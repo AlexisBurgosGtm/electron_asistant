@@ -9,7 +9,9 @@ import { renderSoporteClientes, openNewSoporteModal } from './pages/soporte-clie
 import { renderUpdater, openNewUpdaterModal } from './pages/updater.js';
 import { renderTokens, openNewTokenModal, openNewCommunityModal } from './pages/tokens.js';
 import { renderConfiguraciones } from './pages/configuraciones.js';
+import { renderAlarmas, openNewAlarmaModal } from './pages/alarmas.js';
 import { initWhatsAppListener } from './services/whatsapp.js';
+import { initAlarmas } from './services/alarmas.js';
 import { initTts } from './tts.js';
 import { showToast, renderLoader } from './utils.js';
 import { initTheme } from './themes.js';
@@ -23,6 +25,7 @@ const routes = {
   '/tokens': { title: 'Tokens', icon: 'fa-key', render: renderTokens },
   '/mantenimiento': { title: 'Mantenimiento DB', icon: 'fa-screwdriver-wrench', render: renderMantenimiento },
   '/tareas': { title: 'Tareas', icon: 'fa-list-check', render: renderTareas },
+  '/alarmas': { title: 'Alarmas', icon: 'fa-bell', render: renderAlarmas },
   '/whatsapp': { title: 'Whatsapp', icon: 'fa-brands fa-whatsapp', render: renderWhatsapp },
   '/configuraciones': { title: 'Configuraciones', icon: 'fa-gear', render: renderConfiguraciones },
 };
@@ -76,6 +79,8 @@ function renderTopbarActions(routePath = currentRoute) {
     `;
   } else if (routePath === '/mantenimiento') {
     extra = `<button class="btn btn--primary" id="btn-add-comando" type="button"><i class="fa-solid fa-plus"></i> Nuevo comando</button>`;
+  } else if (routePath === '/alarmas') {
+    extra = `<button class="btn btn--primary" id="btn-add-alarma" type="button"><i class="fa-solid fa-plus"></i> Nueva alarma</button>`;
   }
 
   actions.innerHTML = extra;
@@ -93,6 +98,8 @@ function renderTopbarActions(routePath = currentRoute) {
     document.getElementById('btn-add-community-top')?.addEventListener('click', openNewCommunityModal);
   } else if (routePath === '/mantenimiento') {
     document.getElementById('btn-add-comando')?.addEventListener('click', openNewComandoModal);
+  } else if (routePath === '/alarmas') {
+    document.getElementById('btn-add-alarma')?.addEventListener('click', openNewAlarmaModal);
   }
 }
 
@@ -188,6 +195,10 @@ window.__reloadTokens = async () => {
   if (currentRoute === '/tokens') await reloadCurrentPage();
 };
 
+window.__reloadAlarmas = async () => {
+  if (currentRoute === '/alarmas') await reloadCurrentPage();
+};
+
 window.addEventListener('hashchange', () => {
   currentRoute = getRoute();
   renderNav();
@@ -212,3 +223,4 @@ setInterval(checkServerStatus, 30000);
 
 initTts();
 initWhatsAppListener();
+initAlarmas();

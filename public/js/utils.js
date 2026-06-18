@@ -57,6 +57,7 @@ export function showToast(message, type = 'info') {
     success: 'fa-circle-check',
     error: 'fa-circle-xmark',
     info: 'fa-circle-info',
+    warning: 'fa-bell',
   };
 
   const toast = document.createElement('div');
@@ -67,7 +68,8 @@ export function showToast(message, type = 'info') {
   `;
 
   container.appendChild(toast);
-  setTimeout(() => toast.remove(), 4000);
+  const duration = type === 'warning' ? 10000 : 4000;
+  setTimeout(() => toast.remove(), duration);
 }
 
 export function openModal(title, contentHtml, onMount) {

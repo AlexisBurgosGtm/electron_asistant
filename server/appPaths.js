@@ -53,6 +53,10 @@ function serviciosOnlinePath() {
   return path.join(getDataDir(), 'servicios-online.json');
 }
 
+function alarmasPath() {
+  return path.join(getDataDir(), 'alarmas.json');
+}
+
 function googleCredentialsPath() {
   return path.join(getDataDir(), 'google-credentials.json');
 }
@@ -195,6 +199,12 @@ async function ensureDataFiles() {
   );
 
   await copyIfMissing(
+    path.join(getBundleDir(), 'alarmas.json'),
+    alarmasPath(),
+    '[]'
+  );
+
+  await copyIfMissing(
     path.join(getBundleDir(), 'google-credentials.json.example'),
     path.join(getDataDir(), 'google-credentials.json.example')
   );
@@ -224,6 +234,7 @@ module.exports = {
   mantenimientoPath,
   configPath,
   serviciosOnlinePath,
+  alarmasPath,
   googleCredentialsPath,
   googleTokensPath,
   whatsappAuthPath,

@@ -73,4 +73,9 @@ export const api = {
   getGoogleTasks: () => request('/google/tasks'),
   completeGoogleTask: (listId, taskId) => request(`/google/tasks/${listId}/${taskId}/complete`, { method: 'POST' }),
   logoutGoogle: () => request('/google/logout', { method: 'POST' }),
+  getAlarmas: () => request('/alarmas'),
+  createAlarma: (data) => request('/alarmas', { method: 'POST', body: JSON.stringify(data) }),
+  updateAlarma: (id, data) => request(`/alarmas/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+  dispararAlarma: (id) => request(`/alarmas/${id}/disparar`, { method: 'POST' }),
+  deleteAlarma: (id) => request(`/alarmas/${id}`, { method: 'DELETE' }),
 };

@@ -646,6 +646,16 @@ html, body {
   background: rgba(59, 130, 246, 0.12);
 }
 
+.toast--warning {
+  border-color: rgba(245, 158, 11, 0.55);
+  background: rgba(245, 158, 11, 0.18);
+  color: #fde68a;
+}
+
+.alarma-row--fired td {
+  opacity: 0.65;
+}
+
 /* Empty state */
 .empty-state {
   text-align: center;
@@ -1339,6 +1349,18 @@ html, body {
   background: rgba(168, 85, 247, 0.12);
   border-color: rgba(168, 85, 247, 0.3);
   color: #c4b5fd;
+}
+
+.table-tag--ok {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #86efac;
+}
+
+.table-tag--muted {
+  background: rgba(100, 116, 139, 0.12);
+  border-color: rgba(100, 116, 139, 0.25);
+  color: #94a3b8;
 }
 
 .query-preview {
