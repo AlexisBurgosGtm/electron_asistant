@@ -498,6 +498,17 @@ html, body {
   grid-column: 1 / -1;
 }
 
+.form-grid--alarm-datetime {
+  grid-template-columns: minmax(0, 1fr) 4.5rem 4.5rem;
+  gap: 0.65rem;
+}
+
+.form-group--time select {
+  padding: 0.5rem 0.25rem;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .form-group label {
   font-size: 0.85rem;
   color: var(--text-secondary);

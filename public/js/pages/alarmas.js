@@ -35,17 +35,17 @@ function getAlarmaFormHtml(alarma) {
 
   return `
     <form id="alarma-form" novalidate>
-      <div class="form-grid">
+      <div class="form-grid form-grid--alarm-datetime">
         <div class="form-group">
           <label for="alarma-fecha">Fecha</label>
           <input type="date" id="alarma-fecha" required value="${escapeHtml(a.fecha || today)}">
         </div>
-        <div class="form-group">
+        <div class="form-group form-group--time">
           <label for="alarma-hora">Hora</label>
           <select id="alarma-hora" required>${getHourOptions(a.hora ?? new Date().getHours())}</select>
         </div>
-        <div class="form-group">
-          <label for="alarma-minuto">Minuto</label>
+        <div class="form-group form-group--time">
+          <label for="alarma-minuto">Min</label>
           <select id="alarma-minuto" required>${getMinuteOptions(a.minuto ?? new Date().getMinutes())}</select>
         </div>
         <div class="form-group form-group--full">

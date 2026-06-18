@@ -177,7 +177,6 @@ function markPollReady(messages = []) {
 
 function handleNewMessage(message, options = {}) {
   if (!message?.id) return;
-  if (!pollInitialized && !options.force) return;
 
   const isNew = !knownMessageIds.has(message.id);
   knownMessageIds.add(message.id);
@@ -186,6 +185,8 @@ function handleNewMessage(message, options = {}) {
     dispatchEvent({ type: 'message', message });
   }
 
+  if (!pollInitialized && !options.force) return;
+
   if (isNew && message.unread) {
     scheduleTts(message);
   }
@@ -193,10 +194,11 @@ function handleNewMessage(message, options = {}) {
 
 function handleMessageUpdate(message) {
   if (!message?.id) return;
-  if (!pollInitialized) return;
 
   knownMessageIds.add(message.id);
   dispatchEvent({ type: 'message_update', message });
+
+  if (!pollInitialized) return;
 
   if (spokenMessageIds.has(message.id) || !message.unread) return;
 
@@ -273,15 +275,15 @@ async function pollMessages() {
       api.getWhatsAppStatus(),
     ]);
 
+    const list = Array.isArray(messages) ? messages : [];
+
     if (!pollInitialized) {
-      markPollReady(messages);
-      if (status.status === 'ready') {
-        dispatchEvent({ type: 'status', ...status });
-      }
+      markPollReady(list);
+      dispatchEvent({ type: 'messages_sync', messages: list, ...status });
       return;
     }
 
-    const sorted = [...messages].sort((a, b) => a.timestamp - b.timestamp);
+    const sorted = [...list].sort((a, b) => a.timestamp - b.timestamp);
     let changed = false;
     sorted.forEach((msg) => {
       const wasKnown = knownMessageIds.has(msg.id);
@@ -289,10 +291,28 @@ async function pollMessages() {
       if (!wasKnown && knownMessageIds.has(msg.id)) changed = true;
     });
     if (changed) {
-      dispatchEvent({ type: 'messages_sync', messages, ...status });
+      dispatchEvent({ type: 'messages_sync', messages: list, ...status });
     }
   } catch {
     /* ignore */
+  }
+}
+
+export async function syncWhatsAppMessagesToPage() {
+  try {
+    const [messages, status] = await Promise.all([
+      api.getWhatsAppMessages(),
+      api.getWhatsAppStatus(),
+    ]);
+    const list = Array.isArray(messages) ? messages : [];
+    list.forEach((msg) => {
+      if (msg?.id) knownMessageIds.add(msg.id);
+    });
+    pollInitialized = true;
+    dispatchEvent({ type: 'messages_sync', messages: list, ...status });
+    return list;
+  } catch {
+    return [];
   }
 }
 

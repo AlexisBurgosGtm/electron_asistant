@@ -10,6 +10,7 @@ import {
   onWhatsAppTtsSenderOnlyChange,
   loadWhatsAppConfig,
   refreshWhatsAppListener,
+  syncWhatsAppMessagesToPage,
   getContactDisplayName,
   formatMessageForSpeech,
   getWhatsAppOmitConfig,
@@ -121,8 +122,10 @@ function updateQrOverlay(container, state, messages) {
 function updateView(container, state, messages) {
   if (!container?.isConnected) return;
 
+  const list = Array.isArray(messages) ? messages : [];
+
   cachedState = state;
-  cachedMessages = messages;
+  cachedMessages = list;
 
   const statusEl = container.querySelector('#wa-connection-status');
   const userEl = container.querySelector('#wa-user-info');
@@ -147,10 +150,10 @@ function updateView(container, state, messages) {
     }
   }
 
-  updateQrOverlay(container, state, messages);
+  updateQrOverlay(container, state, list);
 
   if (messagesEl) {
-    messagesEl.innerHTML = renderMessages(messages);
+    messagesEl.innerHTML = renderMessages(list);
     bindMessageEvents(messagesEl);
   }
 
@@ -188,7 +191,7 @@ async function refreshState(container, { showMessagesLoader = false } = {}) {
       api.getWhatsAppMessages(),
     ]);
     messagesLoading = false;
-    updateView(container, state, messages);
+    updateView(container, state, Array.isArray(messages) ? messages : []);
   } catch (err) {
     messagesLoading = false;
     showToast(err.message, 'error');
@@ -205,11 +208,12 @@ function upsertMessage(message) {
   }
 }
 
-function handleWhatsAppEvent(container, data) {
-  if (!container?.isConnected) return;
+function handleWhatsAppEvent(data) {
+  const container = pageContainer;
+  if (!container?.isConnected || !data) return;
 
   if (data.type === 'init' || data.type === 'messages_sync') {
-    cachedMessages = [...(data.messages || [])];
+    cachedMessages = [...(Array.isArray(data.messages) ? data.messages : [])];
     updateView(container, extractState(data), cachedMessages);
     return;
   }
@@ -370,8 +374,9 @@ export async function renderWhatsapp(container) {
     }
   });
 
-  window.__onWhatsAppEvent = (data) => handleWhatsAppEvent(container, data);
+  window.__onWhatsAppEvent = handleWhatsAppEvent;
 
+  await syncWhatsAppMessagesToPage();
   await refreshState(container, { showMessagesLoader: true });
 
   pollTimer = setInterval(() => refreshState(container), 5000);
