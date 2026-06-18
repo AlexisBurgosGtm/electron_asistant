@@ -17,38 +17,69 @@ function getCardEl(id) {
   return document.querySelector(`.card[data-id="${id}"]`);
 }
 
-function applyCardStatus(id, status) {
+function formatDbSizeMb(mb) {
+  if (mb == null || Number.isNaN(Number(mb))) return null;
+  return Number(mb).toLocaleString('es-ES', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  });
+}
+
+function applyCardStatus(id, status, meta = {}) {
   const card = getCardEl(id);
   if (!card) return;
 
   card.classList.remove('card--online', 'card--offline', 'card--checking');
 
   const statusEl = card.querySelector('.card__status');
+  const sizeEl = card.querySelector('.card__db-size');
   if (!statusEl) return;
 
   if (status === 'online') {
     card.classList.add('card--online');
     statusEl.textContent = 'Activa';
     statusEl.className = 'card__status card__status--online';
+    if (sizeEl) {
+      const formatted = formatDbSizeMb(meta.databaseSizeMb);
+      if (formatted != null) {
+        sizeEl.textContent = `${formatted} MB`;
+        sizeEl.hidden = false;
+      } else {
+        sizeEl.textContent = '';
+        sizeEl.hidden = true;
+      }
+    }
   } else if (status === 'offline') {
     card.classList.add('card--offline');
     statusEl.textContent = 'Inactiva';
     statusEl.className = 'card__status card__status--offline';
+    if (sizeEl) {
+      sizeEl.textContent = '';
+      sizeEl.hidden = true;
+    }
   } else if (status === 'checking') {
     card.classList.add('card--checking');
     statusEl.textContent = 'Verificando...';
     statusEl.className = 'card__status card__status--checking';
+    if (sizeEl) {
+      sizeEl.textContent = '';
+      sizeEl.hidden = true;
+    }
   } else {
     statusEl.textContent = 'Sin verificar';
     statusEl.className = 'card__status';
+    if (sizeEl) {
+      sizeEl.textContent = '';
+      sizeEl.hidden = true;
+    }
   }
 }
 
 async function pingConnection(id) {
   applyCardStatus(id, 'checking');
   try {
-    await api.testConexion(id);
-    applyCardStatus(id, 'online');
+    const result = await api.testConexion(id);
+    applyCardStatus(id, 'online', { databaseSizeMb: result.databaseSizeMb });
     return { ok: true };
   } catch {
     applyCardStatus(id, 'offline');
@@ -86,7 +117,10 @@ function renderCard(conexion) {
           <div class="card__meta">${escapeHtml(conexion.host)}:${puerto}</div>
         </div>
         <div class="card__header-right">
-          <span class="card__status">Sin verificar</span>
+          <div class="card__status-group">
+            <span class="card__status">Sin verificar</span>
+            <span class="card__db-size" hidden></span>
+          </div>
           ${getTipoBadge(conexion.tipo)}
         </div>
       </div>
@@ -174,7 +208,7 @@ function bindCardEvents(container, conexiones, reload) {
       btn.disabled = true;
       try {
         await runConnectionTest(btn.dataset.id, btn.dataset.nombre, {
-          onStatus: (status) => applyCardStatus(btn.dataset.id, status),
+          onStatus: (status, meta = {}) => applyCardStatus(btn.dataset.id, status, meta),
         });
       } finally {
         btn.disabled = false;

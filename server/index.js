@@ -266,18 +266,51 @@ function getMysqlConfig(conexion) {
   };
 }
 
+async function getMssqlDatabaseSizeMb(pool) {
+  const result = await pool.request().query(`
+    SELECT CAST(SUM(CAST(size AS BIGINT)) * 8.0 / 1024 AS DECIMAL(18, 2)) AS sizeMB
+    FROM sys.master_files
+    WHERE database_id = DB_ID()
+  `);
+  const row = result.recordset?.[0];
+  return row?.sizeMB != null ? Number(row.sizeMB) : null;
+}
+
+async function getMysqlDatabaseSizeMb(connection, database) {
+  const [rows] = await connection.query(
+    `SELECT ROUND(SUM(data_length + index_length) / 1024 / 1024, 2) AS sizeMB
+     FROM information_schema.tables
+     WHERE table_schema = ?`,
+    [database]
+  );
+  const row = rows?.[0];
+  return row?.sizeMB != null ? Number(row.sizeMB) : null;
+}
+
 async function testMssql(conexion) {
   const pool = await sql.connect(getMssqlConfig(conexion));
   await pool.request().query('SELECT 1 AS ok');
+  let databaseSizeMb = null;
+  try {
+    databaseSizeMb = await getMssqlDatabaseSizeMb(pool);
+  } catch {
+    /* ignorar error de tamaño */
+  }
   await pool.close();
-  return { ok: true, mensaje: 'Conexión SQL Server exitosa' };
+  return { ok: true, mensaje: 'Conexión SQL Server exitosa', databaseSizeMb };
 }
 
 async function testMysql(conexion) {
   const connection = await mysql.createConnection(getMysqlConfig(conexion));
   await connection.query('SELECT 1 AS ok');
+  let databaseSizeMb = null;
+  try {
+    databaseSizeMb = await getMysqlDatabaseSizeMb(connection, conexion.baseDatos);
+  } catch {
+    /* ignorar error de tamaño */
+  }
   await connection.end();
-  return { ok: true, mensaje: 'Conexión MySQL exitosa' };
+  return { ok: true, mensaje: 'Conexión MySQL exitosa', databaseSizeMb };
 }
 
 async function testConexion(conexion) {

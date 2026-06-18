@@ -6,12 +6,15 @@ export async function runConnectionTest(id, nombre, { onStatus } = {}) {
   onStatus?.('checking');
   try {
     const result = await api.testConexion(id);
-    onStatus?.('online');
+    onStatus?.('online', { databaseSizeMb: result.databaseSizeMb });
+    const sizeLabel = result.databaseSizeMb != null
+      ? ` Tamaño: ${Number(result.databaseSizeMb).toLocaleString('es-ES', { maximumFractionDigits: 2 })} megabytes.`
+      : '';
     const msg = nombre
-      ? `Conexión ${nombre}: ${result.mensaje}`
-      : result.mensaje;
-    showToast(msg, 'success');
-    speak(msg);
+      ? `Conexión ${nombre}: ${result.mensaje}.${sizeLabel}`
+      : `${result.mensaje}.${sizeLabel}`;
+    showToast(msg.trim(), 'success');
+    speak(msg.trim());
     return { ok: true, ...result };
   } catch (err) {
     onStatus?.('offline');
