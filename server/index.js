@@ -1020,11 +1020,14 @@ function createApp() {
       if (index === -1) {
         return res.status(404).json({ error: 'Alarma no encontrada' });
       }
-      if (alarmas[index].disparada) {
-        return res.status(400).json({ error: 'No se puede editar una alarma ya disparada' });
-      }
       const parsed = parseAlarmaTime(req.body);
-      alarmas[index] = { ...alarmas[index], ...parsed, id: req.params.id };
+      alarmas[index] = {
+        ...alarmas[index],
+        ...parsed,
+        id: req.params.id,
+        disparada: false,
+        disparadaEn: null,
+      };
       await writeAlarmas(alarmas);
       res.json(alarmas[index]);
     } catch (err) {

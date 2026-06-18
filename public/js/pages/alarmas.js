@@ -96,12 +96,15 @@ function bindAlarmaForm(form, close, onSave, afterSave) {
 
 function openAlarmaModal(alarma, reload) {
   const isEdit = Boolean(alarma?.id);
-  openModal(isEdit ? 'Editar alarma' : 'Nueva alarma', getAlarmaFormHtml(alarma), (_root, close) => {
+  const isReactivate = Boolean(alarma?.disparada);
+  const modalTitle = !isEdit ? 'Nueva alarma' : (isReactivate ? 'Reactivar alarma' : 'Editar alarma');
+
+  openModal(modalTitle, getAlarmaFormHtml(alarma), (_root, close) => {
     const form = document.getElementById('alarma-form');
     bindAlarmaForm(form, close, async (data) => {
       if (isEdit) {
         await api.updateAlarma(alarma.id, data);
-        showToast('Alarma actualizada', 'success');
+        showToast(isReactivate ? 'Alarma reactivada' : 'Alarma actualizada', 'success');
       } else {
         await api.createAlarma(data);
         showToast('Alarma creada', 'success');
@@ -165,11 +168,9 @@ function renderAlarmasTable(alarmas) {
         </span>
       </td>
       <td class="table-actions">
-        ${!alarma.disparada ? `
-          <button class="btn btn--ghost btn--sm btn-edit" data-id="${alarma.id}" title="Editar">
-            <i class="fa-solid fa-pen"></i>
-          </button>
-        ` : ''}
+        <button class="btn btn--ghost btn--sm btn-edit" data-id="${alarma.id}" title="${alarma.disparada ? 'Reactivar' : 'Editar'}">
+          <i class="fa-solid fa-pen"></i>
+        </button>
         <button class="btn btn--danger btn--sm btn-delete" data-id="${alarma.id}" title="Eliminar">
           <i class="fa-solid fa-trash"></i>
         </button>

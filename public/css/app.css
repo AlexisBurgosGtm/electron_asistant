@@ -1626,6 +1626,80 @@ html, body {
   margin-bottom: 0.75rem;
 }
 
+/* Mensajes WhatsApp: fondo fijo, independiente del tema */
+.wa-messages-panel {
+  background: #ffffff !important;
+  border-color: #e5e7eb !important;
+  color: #4b5563;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.wa-messages-panel .wa-messages-header {
+  border-bottom-color: #e5e7eb;
+}
+
+.wa-messages-panel .wa-messages-header h3 {
+  color: #374151;
+}
+
+.wa-messages-panel .wa-messages-body,
+.wa-messages-panel .wa-messages-list {
+  background: #ffffff;
+}
+
+.wa-messages-panel .wa-message {
+  background: #f9fafb !important;
+  border: 1px solid #e5e7eb !important;
+  color: #4b5563;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  box-shadow: none;
+}
+
+.wa-messages-panel .wa-message__header {
+  color: #6b7280;
+}
+
+.wa-messages-panel .wa-message__header time {
+  color: #9ca3af;
+}
+
+.wa-messages-panel .wa-message__from {
+  color: #128c7e;
+}
+
+.wa-messages-panel .wa-message__body {
+  color: #374151;
+}
+
+.wa-messages-panel .wa-empty {
+  color: #9ca3af;
+}
+
+.wa-messages-panel .wa-empty p {
+  color: #6b7280;
+}
+
+.wa-messages-panel .btn--ghost {
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+.wa-messages-panel .btn--ghost:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.wa-messages-panel .table-loader,
+.wa-messages-panel .page-loader {
+  color: #6b7280;
+}
+
+.wa-messages-panel .table-loader i,
+.wa-messages-panel .page-loader i {
+  color: #9ca3af;
+}
+
 /* Google Tasks */
 .tasks-layout {
   display: grid;
