@@ -73,18 +73,34 @@ function renderMessages(messages) {
     `;
   }
 
-  return messages.map((m) => `
-    <article class="wa-message glass" data-id="${escapeHtml(m.id)}">
-      <div class="wa-message__header">
-        <span class="wa-message__from"><i class="fa-solid fa-user"></i> ${escapeHtml(getContactDisplayName(m))}</span>
-        <time>${formatTime(m.timestamp)}</time>
-      </div>
-      <p class="wa-message__body">${escapeHtml(m.body || `[${m.type || 'mensaje'}]`)}</p>
-      <button class="btn btn--ghost btn--sm btn-speak-msg" type="button" data-id="${escapeHtml(m.id)}">
-        <i class="fa-solid fa-volume-high"></i> Escuchar
-      </button>
-    </article>
-  `).join('');
+  return `
+    <div class="wa-table-panel">
+      <table class="wa-messages-table">
+        <thead>
+          <tr>
+            <th>Remitente</th>
+            <th>Mensaje</th>
+            <th>Fecha</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${messages.map((m) => `
+            <tr class="wa-messages-table__row" data-id="${escapeHtml(m.id)}">
+              <td class="wa-messages-table__from">${escapeHtml(getContactDisplayName(m))}</td>
+              <td class="wa-messages-table__body">${escapeHtml(m.body || `[${m.type || 'mensaje'}]`)}</td>
+              <td class="wa-messages-table__time">${formatTime(m.timestamp)}</td>
+              <td class="wa-messages-table__actions">
+                <button class="btn btn--ghost btn--sm btn-speak-msg" type="button" data-id="${escapeHtml(m.id)}" title="Escuchar">
+                  <i class="fa-solid fa-volume-high"></i>
+                </button>
+              </td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
 }
 
 function bindMessageEvents(container) {
@@ -285,7 +301,7 @@ export async function renderWhatsapp(container) {
         </div>
       </div>
 
-      <div class="wa-messages-panel glass">
+      <div class="wa-messages-panel">
         <div class="wa-messages-header">
           <h3><i class="fa-solid fa-inbox"></i> Mensajes sin leer</h3>
           <button class="btn btn--ghost btn--sm" id="wa-refresh-btn" type="button" title="Reconectar y buscar mensajes nuevos">

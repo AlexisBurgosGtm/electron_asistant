@@ -266,14 +266,39 @@ function getMysqlConfig(conexion) {
   };
 }
 
-async function getMssqlDatabaseSizeMb(pool) {
-  const result = await pool.request().query(`
-    SELECT CAST(SUM(CAST(size AS BIGINT)) * 8.0 / 1024 AS DECIMAL(18, 2)) AS sizeMB
-    FROM sys.master_files
-    WHERE database_id = DB_ID()
-  `);
-  const row = result.recordset?.[0];
-  return row?.sizeMB != null ? Number(row.sizeMB) : null;
+async function getMssqlDatabaseSizeMb(pool, databaseName) {
+  try {
+    const result = await pool.request().query(`
+      SELECT CAST(SUM(CAST(size AS BIGINT)) * 8.0 / 1024 AS DECIMAL(18, 2)) AS sizeMB
+      FROM sys.database_files
+    `);
+    const sizeMB = result.recordset?.[0]?.sizeMB;
+    if (sizeMB != null && !Number.isNaN(Number(sizeMB))) {
+      return Number(sizeMB);
+    }
+  } catch {
+    /* probar alternativa */
+  }
+
+  if (databaseName) {
+    try {
+      const result = await pool.request()
+        .input('dbName', sql.NVarChar, databaseName)
+        .query(`
+          SELECT CAST(SUM(CAST(size AS BIGINT)) * 8.0 / 1024 AS DECIMAL(18, 2)) AS sizeMB
+          FROM sys.master_files
+          WHERE database_id = DB_ID(@dbName)
+        `);
+      const sizeMB = result.recordset?.[0]?.sizeMB;
+      if (sizeMB != null && !Number.isNaN(Number(sizeMB))) {
+        return Number(sizeMB);
+      }
+    } catch {
+      /* sin tamaño */
+    }
+  }
+
+  return null;
 }
 
 async function getMysqlDatabaseSizeMb(connection, database) {
@@ -292,7 +317,7 @@ async function testMssql(conexion) {
   await pool.request().query('SELECT 1 AS ok');
   let databaseSizeMb = null;
   try {
-    databaseSizeMb = await getMssqlDatabaseSizeMb(pool);
+    databaseSizeMb = await getMssqlDatabaseSizeMb(pool, conexion.baseDatos);
   } catch {
     /* ignorar error de tamaño */
   }

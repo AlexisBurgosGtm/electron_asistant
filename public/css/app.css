@@ -1644,78 +1644,127 @@ html, body {
   margin-bottom: 0.75rem;
 }
 
-/* Mensajes WhatsApp: fondo fijo, independiente del tema */
+/* Mensajes WhatsApp: tabla con fondo claro fijo (independiente del tema) */
 .wa-messages-panel {
   background: #ffffff !important;
-  border-color: #e5e7eb !important;
-  color: #4b5563;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb !important;
+  color: #374151 !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 .wa-messages-panel .wa-messages-header {
-  border-bottom-color: #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
 }
 
 .wa-messages-panel .wa-messages-header h3 {
-  color: #374151;
+  color: #374151 !important;
 }
 
 .wa-messages-panel .wa-messages-body,
-.wa-messages-panel .wa-messages-list {
-  background: #ffffff;
+.wa-messages-panel .wa-messages-list,
+.wa-messages-panel .wa-table-panel {
+  background: #ffffff !important;
+  color: #374151 !important;
 }
 
-.wa-messages-panel .wa-message {
+.wa-messages-panel .wa-table-panel {
+  border-radius: 8px;
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+.wa-messages-panel .wa-messages-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+  background: #ffffff !important;
+  color: #374151 !important;
+}
+
+.wa-messages-panel .wa-messages-table thead {
+  background: #f3f4f6 !important;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.wa-messages-panel .wa-messages-table th {
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #6b7280 !important;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+}
+
+.wa-messages-panel .wa-messages-table td {
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid #f3f4f6;
+  color: #374151 !important;
+  vertical-align: top;
+}
+
+.wa-messages-panel .wa-messages-table tbody tr:hover {
   background: #f9fafb !important;
-  border: 1px solid #e5e7eb !important;
-  color: #4b5563;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  box-shadow: none;
 }
 
-.wa-messages-panel .wa-message__header {
-  color: #6b7280;
+.wa-messages-panel .wa-messages-table__from {
+  color: #128c7e !important;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 120px;
 }
 
-.wa-messages-panel .wa-message__header time {
-  color: #9ca3af;
+.wa-messages-panel .wa-messages-table__body {
+  color: #4b5563 !important;
+  word-break: break-word;
+  max-width: 420px;
 }
 
-.wa-messages-panel .wa-message__from {
-  color: #128c7e;
+.wa-messages-panel .wa-messages-table__time {
+  color: #9ca3af !important;
+  white-space: nowrap;
+  font-size: 0.78rem;
 }
 
-.wa-messages-panel .wa-message__body {
-  color: #374151;
+.wa-messages-panel .wa-messages-table__actions {
+  white-space: nowrap;
+  width: 48px;
 }
 
 .wa-messages-panel .wa-empty {
-  color: #9ca3af;
+  color: #9ca3af !important;
+  background: #ffffff !important;
 }
 
 .wa-messages-panel .wa-empty p {
-  color: #6b7280;
+  color: #6b7280 !important;
 }
 
 .wa-messages-panel .btn--ghost {
-  color: #6b7280;
-  border-color: #d1d5db;
+  color: #6b7280 !important;
+  border-color: #d1d5db !important;
+  background: transparent !important;
 }
 
 .wa-messages-panel .btn--ghost:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: #f3f4f6 !important;
+  color: #374151 !important;
 }
 
 .wa-messages-panel .table-loader,
 .wa-messages-panel .page-loader {
-  color: #6b7280;
+  color: #6b7280 !important;
+  background: #ffffff !important;
 }
 
 .wa-messages-panel .table-loader i,
 .wa-messages-panel .page-loader i {
-  color: #9ca3af;
+  color: #9ca3af !important;
 }
 
 /* Google Tasks */
@@ -2207,4 +2256,25 @@ html, body {
   .tasks-layout {
     grid-template-columns: 1fr;
   }
+}
+
+/* WhatsApp mensajes: forzar tema claro al final del CSS */
+.wa-messages-panel,
+.wa-messages-panel .wa-messages-body,
+.wa-messages-panel .wa-messages-list,
+.wa-messages-panel .wa-table-panel,
+.wa-messages-panel .wa-messages-table,
+.wa-messages-panel .wa-messages-table tbody tr {
+  background-color: #ffffff !important;
+  color: #374151 !important;
+}
+
+.wa-messages-panel .wa-messages-table thead,
+.wa-messages-panel .wa-messages-table th {
+  background-color: #f3f4f6 !important;
+  color: #6b7280 !important;
+}
+
+.wa-messages-panel .wa-messages-table tbody tr:hover {
+  background-color: #f9fafb !important;
 }
