@@ -10,6 +10,7 @@ import { renderUpdater, openNewUpdaterModal } from './pages/updater.js';
 import { renderTokens, openNewTokenModal, openNewCommunityModal } from './pages/tokens.js';
 import { renderConfiguraciones } from './pages/configuraciones.js';
 import { renderAlarmas, openNewAlarmaModal } from './pages/alarmas.js';
+import { renderCursor } from './pages/cursor.js';
 import { initWhatsAppListener } from './services/whatsapp.js';
 import { initAlarmas } from './services/alarmas.js';
 import { initTts } from './tts.js';
@@ -27,6 +28,7 @@ const routes = {
   '/tareas': { title: 'Tareas', icon: 'fa-list-check', render: renderTareas },
   '/alarmas': { title: 'Alarmas', icon: 'fa-bell', render: renderAlarmas },
   '/whatsapp': { title: 'Whatsapp', icon: 'fa-brands fa-whatsapp', render: renderWhatsapp },
+  '/cursor': { title: 'Cursor', icon: 'fa-solid fa-code', render: renderCursor },
   '/configuraciones': { title: 'Configuraciones', icon: 'fa-gear', render: renderConfiguraciones },
 };
 

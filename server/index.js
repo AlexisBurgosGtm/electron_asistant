@@ -6,6 +6,7 @@ const mysql = require('mysql2/promise');
 const whatsapp = require('./whatsapp');
 const googleTasks = require('./googleTasks');
 const hostingDb = require('./hostingDb');
+const cursorApi = require('./cursorApi');
 const appPaths = require('./appPaths');
 
 const PORT = 9006;
@@ -61,6 +62,23 @@ async function readAlarmas() {
 
 async function writeAlarmas(alarmas) {
   await fs.writeFile(appPaths.alarmasPath(), JSON.stringify(alarmas, null, 2), 'utf-8');
+}
+
+async function readCursorApiConfig() {
+  try {
+    const data = await fs.readFile(appPaths.cursorApiPath(), 'utf-8');
+    return JSON.parse(data);
+  } catch (err) {
+    if (err.code === 'ENOENT') {
+      await writeCursorApiConfig({});
+      return {};
+    }
+    throw err;
+  }
+}
+
+async function writeCursorApiConfig(config) {
+  await fs.writeFile(appPaths.cursorApiPath(), JSON.stringify(config, null, 2), 'utf-8');
 }
 
 function parseAlarmaTime(body) {
@@ -1126,6 +1144,54 @@ function createApp() {
       res.json({ ok: true });
     } catch (err) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/cursor/status', async (_req, res) => {
+    try {
+      const config = await readCursorApiConfig();
+      res.json({
+        hasApiKey: Boolean(config.apiKey),
+        apiKeyMasked: cursorApi.maskApiKey(config.apiKey || ''),
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.post('/api/cursor/credentials', async (req, res) => {
+    try {
+      const apiKey = String(req.body?.apiKey || '').trim();
+      if (!apiKey) {
+        return res.status(400).json({ error: 'El API key es obligatorio' });
+      }
+      await cursorApi.validateApiKey(apiKey);
+      await writeCursorApiConfig({ apiKey });
+      res.json({ ok: true, apiKeyMasked: cursorApi.maskApiKey(apiKey) });
+    } catch (err) {
+      res.status(400).json({ error: err.message });
+    }
+  });
+
+  app.delete('/api/cursor/credentials', async (_req, res) => {
+    try {
+      await writeCursorApiConfig({});
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  app.get('/api/cursor/usage', async (_req, res) => {
+    try {
+      const config = await readCursorApiConfig();
+      if (!config.apiKey) {
+        return res.status(400).json({ error: 'Configura tu API key de Cursor' });
+      }
+      const usage = await cursorApi.getUsage(config.apiKey);
+      res.json(usage);
+    } catch (err) {
+      res.status(err.status === 401 ? 401 : 500).json({ error: err.message });
     }
   });
 

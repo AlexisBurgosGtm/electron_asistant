@@ -78,4 +78,8 @@ export const api = {
   updateAlarma: (id, data) => request(`/alarmas/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
   dispararAlarma: (id) => request(`/alarmas/${id}/disparar`, { method: 'POST' }),
   deleteAlarma: (id) => request(`/alarmas/${id}`, { method: 'DELETE' }),
+  getCursorStatus: () => request('/cursor/status'),
+  saveCursorCredentials: (data) => request('/cursor/credentials', { method: 'POST', body: JSON.stringify(data) }),
+  deleteCursorCredentials: () => request('/cursor/credentials', { method: 'DELETE' }),
+  getCursorUsage: () => request('/cursor/usage'),
 };

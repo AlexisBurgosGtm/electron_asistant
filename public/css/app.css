@@ -1414,13 +1414,16 @@ html, body {
   min-height: 480px;
 }
 
-.wa-sidebar-panel,
-.wa-messages-panel {
+.wa-sidebar-panel {
   border-radius: var(--radius);
   padding: 1.25rem;
-  overflow: hidden;
+  overflow: auto;
   display: flex;
   flex-direction: column;
+}
+
+.wa-inbox {
+  min-width: 0;
 }
 
 .wa-panel-header {
@@ -1644,127 +1647,217 @@ html, body {
   margin-bottom: 0.75rem;
 }
 
-/* Mensajes WhatsApp: tabla con fondo claro fijo (independiente del tema) */
-.wa-messages-panel {
-  background: #ffffff !important;
-  border: 1px solid #e5e7eb !important;
-  color: #374151 !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08) !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-.wa-messages-panel .wa-messages-header {
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.wa-messages-panel .wa-messages-header h3 {
-  color: #374151 !important;
-}
-
-.wa-messages-panel .wa-messages-body,
-.wa-messages-panel .wa-messages-list,
-.wa-messages-panel .wa-table-panel {
-  background: #ffffff !important;
-  color: #374151 !important;
-}
-
-.wa-messages-panel .wa-table-panel {
-  border-radius: 8px;
-  overflow: auto;
-  flex: 1;
+/* WhatsApp inbox — colores fijos, sin depender del tema */
+.wa-inbox {
+  background: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+  color: #111827;
 }
 
-.wa-messages-panel .wa-messages-table {
+.wa-inbox__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  background: #f9fafb;
+}
+
+.wa-inbox__header h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #111827;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.wa-inbox__body {
+  flex: 1;
+  overflow: auto;
+  background: #ffffff;
+  min-height: 280px;
+  position: relative;
+}
+
+.wa-inbox-table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 0.88rem;
-  background: #ffffff !important;
-  color: #374151 !important;
+  background: #ffffff;
+  color: #111827;
 }
 
-.wa-messages-panel .wa-messages-table thead {
-  background: #f3f4f6 !important;
+.wa-inbox-table thead {
+  background: #f3f4f6;
   position: sticky;
   top: 0;
   z-index: 1;
 }
 
-.wa-messages-panel .wa-messages-table th {
+.wa-inbox-table th {
   padding: 0.65rem 0.85rem;
   text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
-  color: #6b7280 !important;
+  color: #374151;
   border-bottom: 1px solid #e5e7eb;
-  white-space: nowrap;
 }
 
-.wa-messages-panel .wa-messages-table td {
+.wa-inbox-table td {
   padding: 0.7rem 0.85rem;
   border-bottom: 1px solid #f3f4f6;
-  color: #374151 !important;
+  color: #374151;
   vertical-align: top;
+  font-size: 0.88rem;
 }
 
-.wa-messages-panel .wa-messages-table tbody tr:hover {
-  background: #f9fafb !important;
-}
-
-.wa-messages-panel .wa-messages-table__from {
-  color: #128c7e !important;
+.wa-inbox-table td:first-child {
+  color: #0f766e;
   font-weight: 600;
   white-space: nowrap;
-  min-width: 120px;
 }
 
-.wa-messages-panel .wa-messages-table__body {
-  color: #4b5563 !important;
-  word-break: break-word;
-  max-width: 420px;
-}
-
-.wa-messages-panel .wa-messages-table__time {
-  color: #9ca3af !important;
+.wa-inbox-table td:nth-child(3) {
+  color: #6b7280;
   white-space: nowrap;
   font-size: 0.78rem;
 }
 
-.wa-messages-panel .wa-messages-table__actions {
-  white-space: nowrap;
-  width: 48px;
+.wa-inbox-table tbody tr:hover {
+  background: #f9fafb;
 }
 
-.wa-messages-panel .wa-empty {
-  color: #9ca3af !important;
-  background: #ffffff !important;
+.wa-inbox-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #374151;
+  font-size: 0.82rem;
+  cursor: pointer;
 }
 
-.wa-messages-panel .wa-empty p {
-  color: #6b7280 !important;
+.wa-inbox-btn:hover {
+  background: #f3f4f6;
 }
 
-.wa-messages-panel .btn--ghost {
-  color: #6b7280 !important;
-  border-color: #d1d5db !important;
-  background: transparent !important;
+.wa-inbox-empty,
+.wa-inbox-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  padding: 3rem 1rem;
+  color: #6b7280;
+  background: #ffffff;
+  min-height: 280px;
 }
 
-.wa-messages-panel .btn--ghost:hover {
-  background: #f3f4f6 !important;
-  color: #374151 !important;
+.wa-inbox-empty i {
+  font-size: 2.2rem;
+  color: #25d366;
 }
 
-.wa-messages-panel .table-loader,
-.wa-messages-panel .page-loader {
-  color: #6b7280 !important;
-  background: #ffffff !important;
+.wa-inbox-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
 }
 
-.wa-messages-panel .table-loader i,
-.wa-messages-panel .page-loader i {
-  color: #9ca3af !important;
+.wa-sidebar-qr {
+  margin-top: 0.75rem;
+  padding: 0.85rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--glass-border);
+  text-align: center;
+}
+
+.wa-sidebar-qr__content h3 {
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.wa-sidebar-qr__content p {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+/* Cursor usage */
+.cursor-credentials {
+  max-width: 640px;
+  padding: 1.25rem;
+  border-radius: var(--radius);
+}
+
+.cursor-credentials__header {
+  display: flex;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+}
+
+.cursor-credentials__header i {
+  font-size: 1.6rem;
+  color: var(--accent-light);
+}
+
+.cursor-usage__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+}
+
+.cursor-usage__header h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.cursor-usage__header p {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.cursor-usage__actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.cursor-usage__note {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius);
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+}
+
+.cursor-usage__stats {
+  margin-bottom: 1rem;
+}
+
+.cursor-usage__table-title {
+  padding: 0.85rem 1rem 0;
+  font-size: 0.92rem;
 }
 
 /* Google Tasks */
@@ -2256,25 +2349,4 @@ html, body {
   .tasks-layout {
     grid-template-columns: 1fr;
   }
-}
-
-/* WhatsApp mensajes: forzar tema claro al final del CSS */
-.wa-messages-panel,
-.wa-messages-panel .wa-messages-body,
-.wa-messages-panel .wa-messages-list,
-.wa-messages-panel .wa-table-panel,
-.wa-messages-panel .wa-messages-table,
-.wa-messages-panel .wa-messages-table tbody tr {
-  background-color: #ffffff !important;
-  color: #374151 !important;
-}
-
-.wa-messages-panel .wa-messages-table thead,
-.wa-messages-panel .wa-messages-table th {
-  background-color: #f3f4f6 !important;
-  color: #6b7280 !important;
-}
-
-.wa-messages-panel .wa-messages-table tbody tr:hover {
-  background-color: #f9fafb !important;
 }
